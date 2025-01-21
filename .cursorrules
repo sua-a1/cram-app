@@ -49,8 +49,12 @@ References:
 • Keep domain logic centralized (e.g., "mega file" for ticket workflows).  
 • Place shared types in /types or /app/lib/types.  
 • Name files predictably: page.tsx, layout.tsx, route.ts, server-actions.ts.  
-• Use Tailwind, Shadcn UI, and Radix UI; avoid custom components if equivalents exist.  
+• IMPORTANT: Import Shadcn components and Tailwind instead of creating new ones. Only implement custom components using Radix if they don't exist in Shadcn UI.
+• ALWAYS use the --legacy-peer-deps flag when installing packages with npm/npx.
+• The project uses PowerShell as the default terminal.
+
 (See [@docs/Codebase Organization Rules.md](#))
+(See [@docs/ui-components.md](#))
 
 --------------------------------------------------------------------------------
 
