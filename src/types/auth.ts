@@ -1,5 +1,10 @@
 export type UserRole = 'admin' | 'employee' | 'customer'
 
+export type UserMetadata = {
+  org_id?: string
+  [key: string]: any
+}
+
 export type AuthUser = {
   id: string
   email: string
@@ -7,6 +12,7 @@ export type AuthUser = {
   display_name: string
   created_at: string
   updated_at: string
+  metadata?: UserMetadata
 }
 
 export type AuthSession = {

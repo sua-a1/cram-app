@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { resetPasswordAction } from '@/app/(org)/org/reset-password/actions'
+import { resetPassword } from '@/lib/server/auth-logic'
 import { useToast } from '@/hooks/use-toast'
 
 const resetPasswordSchema = z.object({
@@ -43,7 +43,7 @@ export function OrgResetPasswordForm() {
       const formData = new FormData()
       formData.append('email', data.email)
 
-      const result = await resetPasswordAction(formData)
+      const result = await resetPassword({ email: data.email })
 
       if (result?.error) {
         toast({

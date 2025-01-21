@@ -34,7 +34,7 @@ export function SignInForm() {
   const { toast } = useToast()
 
   // Get redirect URL from query params
-  const redirectUrl = searchParams.get('redirect') || '/dashboard'
+  const redirectUrl = searchParams.get('redirect') || '/customer'
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -154,7 +154,7 @@ export function SignInForm() {
         <Link 
           href={{
             pathname: '/auth/signup',
-            query: redirectUrl !== '/dashboard' ? { redirect: redirectUrl } : undefined
+            query: redirectUrl !== '/customer' ? { redirect: redirectUrl } : undefined
           }}
           className="text-primary underline-offset-4 hover:underline"
         >

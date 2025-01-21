@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { getCurrentUser } from '@/lib/server/auth-logic'
 import { Button } from '@/components/ui/button'
+import { SignOutButton } from '@/components/auth/sign-out-button'
 import { Home, Ticket, User } from 'lucide-react'
 
 export default async function CustomerLayout({
@@ -17,10 +18,13 @@ export default async function CustomerLayout({
   }
 
   if (user.role !== 'customer') {
-    if (user.role === 'admin' && user.org_id) {
-      redirect(`/${user.org_id}/admin`)
-    } else if (user.role === 'employee' && user.org_id) {
-      redirect(`/${user.org_id}/employee`)
+    // For organization users, redirect to appropriate route
+    if (user.metadata?.org_id) {
+      if (user.role === 'admin') {
+        redirect(`/${user.metadata.org_id}/admin`)
+      } else if (user.role === 'employee') {
+        redirect(`/${user.metadata.org_id}/employee`)
+      }
     } else {
       redirect('/org/access')
     }
@@ -36,7 +40,7 @@ export default async function CustomerLayout({
             </Link>
             <nav className="flex items-center space-x-4 lg:space-x-6">
               <Button variant="ghost" asChild>
-                <Link href="/">
+                <Link href="/customer">
                   <Home className="mr-2 h-4 w-4" />
                   Dashboard
                 </Link>
@@ -56,6 +60,7 @@ export default async function CustomerLayout({
                 Account
               </Link>
             </Button>
+            <SignOutButton />
           </div>
         </div>
       </header>

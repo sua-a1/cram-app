@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { updatePasswordAction } from '@/app/(org)/org/update-password/actions'
+import { updatePassword } from '@/lib/server/auth-logic'
 import { useToast } from '@/hooks/use-toast'
 
 const updatePasswordSchema = z.object({
@@ -52,7 +52,7 @@ export function OrgUpdatePasswordForm() {
       const formData = new FormData()
       formData.append('password', data.password)
 
-      const result = await updatePasswordAction(formData)
+      const result = await updatePassword({ password: data.password })
 
       if (result?.error) {
         toast({

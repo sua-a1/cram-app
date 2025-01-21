@@ -9,13 +9,16 @@ export const metadata: Metadata = {
   description: 'Processing authentication...',
 }
 
-export default async function AuthCallback({
-  searchParams,
-}: {
-  searchParams: { token?: string; type?: EmailOtpType }
-}) {
+type Props = {
+  searchParams: { [key: string]: string | string[] | undefined }
+}
+
+export default async function Page({ searchParams }: Props) {
+  const token = searchParams.token as string | undefined
+  const type = searchParams.type as EmailOtpType | undefined
+
   try {
-    console.log('Received searchParams:', searchParams)
+    console.log('Received searchParams:', { token, type })
     const cookieStore = await cookies()
     const serviceClient = createServiceClient()
     const supabase = await createServerSupabaseClient()

@@ -82,9 +82,125 @@ From previous sessions:
 3. ✅ Real-time updates and optimistic UI
 4. ✅ Responsive layout and loading states
 
+### Phase 4: Customer Changes Made ✅
+1. Restructured customer routes:
+   - Moved dashboard page from `(customer)/page.tsx` to `(customer)/customer/page.tsx`
+   - Updated sign-in form to redirect to `/customer` instead of root
+   - Fixed routing to ensure proper navigation after sign-in
+
+2. Added sign-out functionality:
+   ```typescript
+   // src/components/auth/sign-out-button.tsx
+   export function SignOutButton() {
+     const [isLoading, setIsLoading] = useState(false)
+     const router = useRouter()
+     const { toast } = useToast()
+
+     async function handleSignOut() {
+       setIsLoading(true)
+       try {
+         const result = await signOut()
+         if (result.error) {
+           toast({
+             variant: 'destructive',
+             title: 'Error',
+             description: result.error,
+           })
+           return
+         }
+         
+         toast({
+           title: 'Success',
+           description: 'You have been signed out.',
+         })
+
+         await new Promise(resolve => setTimeout(resolve, 500))
+         router.push('/')
+         router.refresh()
+       } catch (error) {
+         console.error('Sign out error:', error)
+         toast({
+           variant: 'destructive',
+           title: 'Error',
+           description: 'Something went wrong. Please try again.',
+         })
+       } finally {
+         setIsLoading(false)
+       }
+     }
+
+     return (
+       <Button 
+         variant="ghost" 
+         onClick={handleSignOut}
+         disabled={isLoading}
+       >
+         <LogOut className="mr-2 h-4 w-4" />
+         Sign out
+       </Button>
+     )
+   }
+   ```
+
+3. Enhanced customer layout with sign-out button:
+   ```typescript
+   // src/app/(customer)/layout.tsx
+   export default async function CustomerLayout({
+     children,
+   }: {
+     children: React.ReactNode
+   }) {
+     // ... auth checks ...
+
+     return (
+       <div className="min-h-screen">
+         <header className="border-b">
+           {/* ... other header content ... */}
+           <div className="flex items-center gap-4">
+             <Button variant="ghost" asChild>
+               <Link href="/user">
+                 <User className="mr-2 h-4 w-4" />
+                 Account
+               </Link>
+             </Button>
+             <SignOutButton />
+           </div>
+         </header>
+         <main>{children}</main>
+       </div>
+     )
+   }
+   ```
+
+4. Updated auth types to support organization metadata:
+   ```typescript
+   // src/types/auth.ts
+   export type UserMetadata = {
+     org_id?: string
+     [key: string]: any
+   }
+
+   export type AuthUser = {
+     id: string
+     email: string
+     role: UserRole
+     display_name: string
+     created_at: string
+     updated_at: string
+     metadata?: UserMetadata
+   }
+   ```
+
+### Key Features
+- Proper routing structure for customer dashboard
+- Working sign-out functionality with loading state and feedback
+- Type-safe handling of user metadata for organization info
+- Improved navigation between customer routes
+
+
 ## Next Steps
 1. [ ] Implement Customer Ticket Creation Flow
-   - Create customer dashboard view
+   - Modify customer dashboard view
    - Add organization selector component
    - Implement ticket creation with org selection
    - Add real-time ticket status updates for customers

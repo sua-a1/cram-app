@@ -142,41 +142,33 @@ export async function signUp({ email, password, role = 'customer', display_name 
   const adminClient = await createAdminClient()
   
   try {
+    // First create the auth user
     const { data: { user, session }, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { role },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/auth/callback`,
+        data: { role, display_name },
       },
     })
 
     if (error) throw error
+    if (!user) throw new Error('No user returned from auth signup')
 
-    // Insert into profiles table with role and email using admin client
-    if (user) {
-      // Check if profile already exists
-      const { data: existingProfile } = await adminClient
-        .from('profiles')
-        .select('user_id')
-        .eq('user_id', user.id)
-        .single()
+    // Create profile using admin client to bypass RLS
+    const { error: profileError } = await adminClient
+      .from('profiles')
+      .insert({
+        user_id: user.id,  // Matches schema: user_id uuid PRIMARY KEY REFERENCES auth.users
+        display_name: display_name || email.split('@')[0],
+        role: role,
+        email: email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
 
-      if (!existingProfile) {
-        const { error: profileError } = await adminClient
-          .from('profiles')
-          .insert({
-            display_name: display_name || email.split('@')[0],
-            role,
-            user_id: user.id,
-            email: email,
-          })
-
-        if (profileError) {
-          console.error('Profile creation error:', profileError)
-          throw profileError
-        }
-      }
+    if (profileError) {
+      console.error('Profile creation error:', profileError)
+      throw profileError
     }
 
     return { 
@@ -184,6 +176,7 @@ export async function signUp({ email, password, role = 'customer', display_name 
       session: await transformSession(session, supabase)
     }
   } catch (error: any) {
+    console.error('Signup error:', error)
     return { user: null, session: null, error: error.message }
   }
 }

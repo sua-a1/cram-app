@@ -4,8 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { LogOut } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { signOut } from '@/lib/server/auth-logic'
 import { useToast } from '@/hooks/use-toast'
-import { signOut } from '@/app/(auth)/actions'
 
 export function SignOutButton() {
   const [isLoading, setIsLoading] = useState(false)
@@ -15,21 +15,31 @@ export function SignOutButton() {
   async function handleSignOut() {
     setIsLoading(true)
     try {
-      await signOut()
-      toast({
-        title: 'Signed out successfully',
-      })
-      router.push('/auth/signin')
-    } catch (error) {
-      if ((error as any)?.digest?.includes('NEXT_REDIRECT')) {
-        // This is expected, the server action will handle the redirect
+      const result = await signOut()
+      if (result.error) {
+        toast({
+          variant: 'destructive',
+          title: 'Error',
+          description: result.error,
+        })
         return
       }
-      console.error('Error signing out:', error)
+      
+      toast({
+        title: 'Success',
+        description: 'You have been signed out.',
+      })
+
+      // Add a small delay to allow the toast to show
+      await new Promise(resolve => setTimeout(resolve, 500))
+      router.push('/')
+      router.refresh()
+    } catch (error) {
+      console.error('Sign out error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Failed to sign out. Please try again.',
+        description: 'Something went wrong. Please try again.',
       })
     } finally {
       setIsLoading(false)
@@ -37,14 +47,13 @@ export function SignOutButton() {
   }
 
   return (
-    <Button
-      variant="outline"
-      className="justify-start"
+    <Button 
+      variant="ghost" 
       onClick={handleSignOut}
       disabled={isLoading}
     >
       <LogOut className="mr-2 h-4 w-4" />
-      Sign Out
+      Sign out
     </Button>
   )
 } 

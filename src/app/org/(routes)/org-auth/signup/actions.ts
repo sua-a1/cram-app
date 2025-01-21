@@ -10,6 +10,7 @@ export async function signUpAction(formData: FormData) {
   const password = formData.get('password') as string
   const role = formData.get('role') as 'admin' | 'employee'
   const displayName = formData.get('displayName') as string
+  const orgId = formData.get('orgId') as string
 
   try {
     // Create the auth user
@@ -17,7 +18,6 @@ export async function signUpAction(formData: FormData) {
       email,
       password,
       options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/org/org-auth/callback`,
         data: {
           role: role,
           display_name: displayName,
@@ -35,12 +35,36 @@ export async function signUpAction(formData: FormData) {
       return { error: 'Failed to create user' }
     }
 
-    // Instead of creating the profile now, we'll create it when the user confirms their email
-    // and hits the callback endpoint. For now, just return success.
-    return { 
-      success: true,
-      message: 'Please check your email to verify your account. You will be able to access the platform after verification.'
+    // Create profile immediately since email confirmation is turned off
+    const { error: profileError } = await serviceClient
+      .from('profiles')
+      .insert({
+        user_id: signUpData.user.id,
+        display_name: displayName,
+        role: role,
+        org_id: orgId,
+        email: email,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+
+    if (profileError) {
+      console.error('Profile creation error:', profileError)
+      return { error: 'Failed to create profile' }
     }
+
+    // Sign in the user immediately since email confirmation is off
+    const { error: signInError } = await serviceClient.auth.signInWithPassword({
+      email,
+      password
+    })
+
+    if (signInError) {
+      console.error('Sign in error after signup:', signInError)
+      return { error: 'Account created but failed to sign in' }
+    }
+
+    return { success: true }
 
   } catch (error) {
     console.error('Unexpected error during sign up:', error)
