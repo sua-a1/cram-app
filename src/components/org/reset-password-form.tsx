@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, type ControllerRenderProps } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,18 +16,17 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { resetPassword } from '@/app/(auth)/actions'
+import { resetPasswordAction } from '@/app/(org)/org/reset-password/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const resetPasswordSchema = z.object({
-  email: z.string().email('Please enter a valid email address'),
+  email: z.string().email('Invalid email address'),
 })
 
 type ResetPasswordValues = z.infer<typeof resetPasswordSchema>
 
-export function ResetPasswordForm() {
+export function OrgResetPasswordForm() {
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
   const { toast } = useToast()
 
   const form = useForm<ResetPasswordValues>({
@@ -42,9 +40,12 @@ export function ResetPasswordForm() {
     setIsLoading(true)
 
     try {
-      const result = await resetPassword(data)
+      const formData = new FormData()
+      formData.append('email', data.email)
 
-      if (result.error) {
+      const result = await resetPasswordAction(formData)
+
+      if (result?.error) {
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -53,13 +54,14 @@ export function ResetPasswordForm() {
         return
       }
 
-      setIsLoading(false)
       toast({
-        title: 'Password reset email sent',
-        description: 'Check your email for the reset link.',
+        title: 'Check your email',
+        description: 'We sent you a password reset link.',
       })
-      router.push('/auth/signin')
+
+      form.reset()
     } catch (error) {
+      console.error('Error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -77,12 +79,12 @@ export function ResetPasswordForm() {
           <FormField
             control={form.control}
             name="email"
-            render={({ field }: { field: ControllerRenderProps<ResetPasswordValues, "email"> }) => (
+            render={({ field }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Organization Email</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="name@example.com"
+                    placeholder="org@company.com"
                     type="email"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -105,7 +107,10 @@ export function ResetPasswordForm() {
       </Form>
       <div className="text-center text-sm">
         Remember your password?{' '}
-        <Link href="/signin" className="text-primary underline-offset-4 hover:underline">
+        <Link
+          href="/org/signin"
+          className="text-primary underline-offset-4 hover:underline"
+        >
           Sign in
         </Link>
       </div>

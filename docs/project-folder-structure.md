@@ -6,8 +6,15 @@ cram-app/
 ├── src/                      # Source code
 │   ├── app/                  # Next.js 13 app directory
 │   │   ├── (auth)/          # Authentication route group
-│   │   │   ├── signin/       # Sign-in/Log-in page
-│   │   │   ├── signup/       # Sign-upRegistration page
+│   │   │   ├── auth/        # Auth routes (URL segment)
+│   │   │   │   ├── signin/  # Sign-in page
+│   │   │   │   └── signup/  # Sign-up page
+│   │   │   ├── user/        # User profile management
+│   │   │   ├── signout/     # Sign-out functionality
+│   │   │   ├── callback/    # Auth callback handling
+│   │   │   ├── reset-password/  # Password reset
+│   │   │   ├── update-password/ # Password update
+│   │   │   ├── actions.ts   # Server actions for auth
 │   │   │   └── layout.tsx   # Auth layout
 │   │   ├── (dashboard)/     # Dashboard route group
 │   │   │   ├── admin/       # Admin pages
@@ -25,19 +32,26 @@ cram-app/
 │   ├── components/          # React components
 │   │   ├── ui/              # Shadcn UI components
 │   │   ├── auth/            # Authentication components
+│   │   │   ├── signin-form.tsx  # Sign-in form
+│   │   │   ├── signup-form.tsx  # Sign-up form
+│   │   │   └── auth-layout.tsx  # Auth layout component
 │   │   ├── tickets/         # Ticket-related components
 │   │   └── dashboard/       # Dashboard components
 │   ├── lib/                 # Shared utilities
 │   │   ├── server/          # Server-side utilities
-│   │   │   ├── supabase.ts  # Server Supabase client
+│   │   │   ├── auth-logic.ts # Auth server utilities
 │   │   │   └── tickets-logic.ts # Ticket operations
 │   │   ├── client/          # Client-side utilities
 │   │   │   └── supabase.ts  # Client Supabase auth
 │   │   └── utils.ts         # Shared utility functions
 │   ├── hooks/               # Custom React hooks
+│   │   ├── use-toast.ts     # Toast notifications hook
+│   │   └── use-auth.ts      # Auth context hook
+│   ├── contexts/            # React contexts
+│   │   └── auth-context.tsx # Auth context provider
 │   └── types/               # TypeScript types
 │       ├── supabase.ts      # Database types
-│       └── tickets.ts       # Ticket-related types
+│       └── auth.ts          # Auth-related types
 ├── public/                  # Static assets
 ├── docs/                    # Documentation
 │   ├── sessions/            # Session logs
@@ -54,37 +68,30 @@ cram-app/
 
 ## Key Directories
 
-### `/src/app`
-Next.js 13 app directory using the App Router. Organized with route groups:
-- `(auth)`: Authentication-related pages with isolated layout
-- `(dashboard)`: Protected routes for authenticated users
-- Root-level files for error handling, loading states, and layouts
+### `/src/app/(auth)`
+Authentication route group with proper URL segments:
+- `auth/`: Contains actual auth routes (signin, signup)
+- Shared layout and server actions
+- Support for password reset and callbacks
 
-### `/src/components`
-React components organized by domain:
-- `ui/`: Shadcn UI components (imported, not custom)
-- `auth/`: Authentication-related components
-- `tickets/`: Ticket management components
-- `dashboard/`: Dashboard and analytics components
+### `/src/components/auth`
+Authentication components:
+- Form components with client-side validation
+- Shared auth layout components
+- Toast notifications for feedback
 
 ### `/src/lib`
-Shared utilities and business logic:
-- `server/`: Server-side operations and Supabase admin client
-- `client/`: Client-side utilities and Supabase auth client
-- `utils.ts`: Shared helper functions
+Shared utilities split between client and server:
+- `server/auth-logic.ts`: Server-side auth operations
+- `client/supabase.ts`: Client-side auth utilities
 
-### `/src/types`
-TypeScript type definitions:
-- `supabase.ts`: Database and auth types
-- `tickets.ts`: Ticket-related interfaces
-
-### `/supabase`
-Supabase-related configurations:
-- `migrations/`: SQL migrations for schema and RLS policies
+### `/src/contexts`
+React contexts for state management:
+- `auth-context.tsx`: Global auth state management
 
 ## Conventions
-1. Use route groups `(group)` for logical separation of routes
-2. Keep pages minimal, move logic to server components/actions
-3. Use Shadcn UI components by default, only create custom ones if needed
-4. Centralize domain logic in "mega files" (e.g., tickets-logic.ts)
-5. Keep types close to their domain in `/types`
+1. Use route groups with proper URL segments
+2. Keep auth logic separated between client/server
+3. Use Shadcn UI components by default
+4. Implement proper error handling and feedback
+5. Follow Next.js 13+ best practices

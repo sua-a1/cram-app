@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { signInAction } from '@/app/(auth)/auth/signin/actions'
+import { signInAction } from '@/app/(org)/org/signin/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const signInSchema = z.object({
@@ -27,14 +27,14 @@ const signInSchema = z.object({
 
 type SignInValues = z.infer<typeof signInSchema>
 
-export function SignInForm() {
+export function OrgSignInForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
   // Get redirect URL from query params
-  const redirectUrl = searchParams.get('redirect') || '/dashboard'
+  const redirectUrl = searchParams.get('redirect') || '/org/dashboard'
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -46,7 +46,7 @@ export function SignInForm() {
 
   async function onSubmit(data: SignInValues) {
     setIsLoading(true)
-    console.log('Starting sign in...')
+    console.log('Starting organization sign in...')
 
     try {
       const formData = new FormData()
@@ -97,10 +97,10 @@ export function SignInForm() {
             name="email"
             render={({ field }: { field: ControllerRenderProps<SignInValues, "email"> }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Organization Email</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="you@example.com"
+                    placeholder="org@company.com"
                     type="email"
                     autoCapitalize="none"
                     autoComplete="email"
@@ -121,7 +121,7 @@ export function SignInForm() {
                 <div className="flex items-center justify-between">
                   <FormLabel>Password</FormLabel>
                   <Link
-                    href="/auth/reset-password"
+                    href="/org/reset-password"
                     className="text-sm text-muted-foreground hover:text-primary"
                   >
                     Forgot password?
@@ -145,20 +145,20 @@ export function SignInForm() {
             {isLoading && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Sign in
+            Sign in to Organization
           </Button>
         </form>
       </Form>
       <div className="text-center text-sm">
-        Don't have an account?{' '}
+        Don't have an organization account?{' '}
         <Link 
           href={{
-            pathname: '/auth/signup',
-            query: redirectUrl !== '/dashboard' ? { redirect: redirectUrl } : undefined
+            pathname: '/org/signup',
+            query: redirectUrl !== '/org/dashboard' ? { redirect: redirectUrl } : undefined
           }}
           className="text-primary underline-offset-4 hover:underline"
         >
-          Sign up
+          Register Organization
         </Link>
       </div>
     </div>

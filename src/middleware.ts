@@ -45,7 +45,7 @@ export async function middleware(req: NextRequest) {
     if (sessionError) {
       console.error('Session error in middleware:', sessionError)
       const returnUrl = encodeURIComponent(req.nextUrl.pathname)
-      return NextResponse.redirect(new URL(`/signin?returnUrl=${returnUrl}`, req.url))
+      return NextResponse.redirect(new URL(`/auth/signin?returnUrl=${returnUrl}`, req.url))
     }
 
     // Check if route requires protection
@@ -61,7 +61,7 @@ export async function middleware(req: NextRequest) {
     if (!session) {
       console.log('No session found for protected route:', path)
       const returnUrl = encodeURIComponent(path)
-      return NextResponse.redirect(new URL(`/signin?returnUrl=${returnUrl}`, req.url))
+      return NextResponse.redirect(new URL(`/auth/signin?returnUrl=${returnUrl}`, req.url))
     }
 
     // Get user role from profiles

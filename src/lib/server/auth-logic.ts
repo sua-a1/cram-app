@@ -4,7 +4,7 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { createServerClient, type CookieOptions } from '@supabase/ssr'
 import { redirect } from 'next/navigation'
-import { type Database } from '@/types/supabase'
+import { Database } from '../database.types'
 import type { User, Session, SupabaseClient } from '@supabase/supabase-js'
 import {
   type AuthResponse,
@@ -50,28 +50,34 @@ async function transformSession(session: Session | null, supabase: SupabaseClien
 
 // Create a single instance of the Supabase client for server-side operations
 export async function createClient() {
-  return createServerClient<Database>(
+  const cookieStore = cookies()
+
+  return createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookies: {
         async get(name: string) {
-          const cookieStore = await cookies()
-          const cookie = cookieStore.get(name)
+          const cookie = await cookieStore.get(name)
           return cookie?.value
         },
         async set(name: string, value: string, options: CookieOptions) {
-          const cookieStore = await cookies()
-          cookieStore.set({
-            name,
-            value,
-            ...options,
-            secure: process.env.NODE_ENV === 'production'
-          })
+          try {
+            cookieStore.set(name, value, options)
+          } catch {
+            // The `set` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
         },
         async remove(name: string, options: CookieOptions) {
-          const cookieStore = await cookies()
-          cookieStore.delete(name)
+          try {
+            cookieStore.set(name, '', { ...options, maxAge: 0 })
+          } catch {
+            // The `delete` method was called from a Server Component.
+            // This can be ignored if you have middleware refreshing
+            // user sessions.
+          }
         },
       },
     }
@@ -79,29 +85,30 @@ export async function createClient() {
 }
 
 // Create a single instance of the Supabase admin client for privileged operations
-async function createAdminClient() {
+export async function createAdminClient() {
+  const cookieStore = cookies()
+  
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
       cookies: {
-        async get(name: string) {
-          const cookieStore = await cookies()
-          const cookie = cookieStore.get(name)
-          return cookie?.value
+        get(name: string) {
+          return cookieStore.get(name)?.value
         },
-        async set(name: string, value: string, options: CookieOptions) {
-          const cookieStore = await cookies()
-          cookieStore.set({
-            name,
-            value,
-            ...options,
-            secure: process.env.NODE_ENV === 'production'
-          })
+        set(name: string, value: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
         },
-        async remove(name: string, options: CookieOptions) {
-          const cookieStore = await cookies()
-          cookieStore.delete(name)
+        remove(name: string, options: CookieOptions) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
         },
       },
     }
@@ -111,14 +118,15 @@ async function createAdminClient() {
 export async function getCurrentUser(): Promise<AuthUser | null> {
   const supabase = await createClient()
   try {
+    // Get session first to check if we have a valid session
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    if (sessionError || !session) {
+      return null
+    }
+
     // Get authenticated user data from Supabase Auth server
     const { data: { user }, error: userError } = await supabase.auth.getUser()
-    if (userError || !user) return null
-
-    // Get session for additional context
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
-    if (sessionError) {
-      console.error('Session error:', sessionError)
+    if (userError || !user) {
       return null
     }
 
@@ -139,7 +147,7 @@ export async function signUp({ email, password, role = 'customer', display_name 
       password,
       options: {
         data: { role },
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/auth/callback`,
       },
     })
 
@@ -352,4 +360,35 @@ export async function requireRole(allowedRoles: UserRole[]) {
   }
   
   return { session, role }
+}
+
+export async function deleteAccount(): Promise<{ error?: string }> {
+  const supabase = await createClient()
+  const adminClient = await createAdminClient()
+  
+  try {
+    // Get current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    if (userError || !user) throw new Error('Not authenticated')
+
+    // Delete profile first (RLS will ensure user can only delete their own)
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .delete()
+      .eq('user_id', user.id)
+
+    if (profileError) throw profileError
+
+    // Delete user from auth.users (requires admin privileges)
+    const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id)
+    if (deleteError) throw deleteError
+
+    // Sign out after successful deletion
+    await supabase.auth.signOut()
+    
+    return {}
+  } catch (error: any) {
+    console.error('Error deleting account:', error)
+    return { error: error.message }
+  }
 }

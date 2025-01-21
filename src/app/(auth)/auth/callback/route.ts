@@ -13,5 +13,5 @@ export async function GET(request: NextRequest) {
   }
 
   // URL to redirect to after sign in process completes
-  return Response.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/signin`)
+  return Response.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/auth/signin`)
 } 

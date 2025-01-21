@@ -1,3 +1,5 @@
+'use server'
+
 import { NextResponse } from 'next/server'
 import { signOut } from '@/lib/server/auth-logic'
 

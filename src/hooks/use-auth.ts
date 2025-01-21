@@ -15,8 +15,8 @@ export function useAuth() {
       setLoading(false)
 
       if (!session) {
-        router.push('/signin')
-        return null
+        router.push('/auth/signin')
+        return
       }
     })
 
@@ -31,7 +31,7 @@ export function useAuth() {
       }
       if (event === 'SIGNED_OUT') {
         router.refresh()
-        router.push('/signin')
+        router.push('/auth/signin')
       }
     })
 

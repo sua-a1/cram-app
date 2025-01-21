@@ -2,8 +2,10 @@ import { Metadata } from 'next'
 import { getCurrentUser } from '@/lib/server/auth-logic'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Ticket, MessageSquare, Clock, Bell } from 'lucide-react'
+import { Ticket, MessageSquare, Clock, Bell, LogOut, UserX } from 'lucide-react'
 import { StatsCard } from '@/components/dashboard/stats-card'
+import { SignOutButton } from '@/components/auth/sign-out-button'
+import { DeleteAccountButton } from '@/components/auth/delete-account-button'
 
 export const metadata: Metadata = {
   title: 'Dashboard - Cram Support',
@@ -73,6 +75,8 @@ export default async function DashboardPage() {
               <MessageSquare className="mr-2 h-4 w-4" />
               View All Tickets
             </Button>
+            <SignOutButton />
+            <DeleteAccountButton />
           </CardContent>
         </Card>
       </div>

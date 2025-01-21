@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { ArrowRight, CheckCircle } from 'lucide-react'
+import { ArrowRight, CheckCircle, Building2, User } from 'lucide-react'
 
 const features = [
   'Streamlined ticket management',
@@ -22,12 +22,20 @@ export default function HomePage() {
             </Link>
           </div>
           <div className="flex gap-4">
-            <Link href="/signin">
-              <Button variant="ghost">Sign in</Button>
-            </Link>
-            <Link href="/signup">
-              <Button>Create account</Button>
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/auth/signin">
+                <Button variant="ghost" className="gap-2">
+                  <User className="h-4 w-4" />
+                  Customer Sign In
+                </Button>
+              </Link>
+              <Link href="/org/signin">
+                <Button variant="ghost" className="gap-2">
+                  <Building2 className="h-4 w-4" />
+                  Organization Sign In
+                </Button>
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -42,13 +50,33 @@ export default function HomePage() {
               Streamline your customer support with our powerful ticketing system. 
               Manage requests, collaborate with your team, and deliver exceptional service.
             </p>
-            <div className="space-x-4">
-              <Link href="/signup">
-                <Button size="lg" className="gap-2">
-                  Get Started
-                  <ArrowRight className="h-4 w-4" />
-                </Button>
-              </Link>
+            <div className="flex flex-col sm:flex-row gap-4 mt-6">
+              <div className="flex flex-col items-center gap-4 p-6 rounded-lg border bg-card text-card-foreground shadow-sm">
+                <User className="h-12 w-12 text-primary" />
+                <h2 className="text-2xl font-semibold">For Customers</h2>
+                <p className="text-sm text-muted-foreground">
+                  Get quick support and track your requests
+                </p>
+                <Link href="/auth/signup">
+                  <Button size="lg" className="gap-2">
+                    Create Customer Account
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
+              <div className="flex flex-col items-center gap-4 p-6 rounded-lg border bg-card text-card-foreground shadow-sm">
+                <Building2 className="h-12 w-12 text-primary" />
+                <h2 className="text-2xl font-semibold">For Organizations</h2>
+                <p className="text-sm text-muted-foreground">
+                  Manage your support team and handle customer requests
+                </p>
+                <Link href="/org/signup">
+                  <Button size="lg" variant="outline" className="gap-2">
+                    Join as Organization
+                    <ArrowRight className="h-4 w-4" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </section>

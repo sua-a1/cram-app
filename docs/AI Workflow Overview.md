@@ -59,7 +59,8 @@ This file serves as a single source of truth for your AI-first development proce
 5. If the implementation involves new API routes, server actions, or folder structure changes, update the corresponding files @docs/api-routes.md or @docs/project-folder-structure.md to reflect the latest state.
 
 ### Phase 5: Concluding the Session  
-1. Summarize changes and next steps in your session or “@ai-working-notes.md” file.  
+1. Summarize changes and next steps in your session.
+2. Do NOT overwrite the session file so far, always add to it.
 2. Make a final commit including docs and code changes.  
 3. Confirm alignment with all relevant rule files (@.cursorrules, @docs/ui-rules.md, etc.).  
 4. Mark the task as complete in the "Roadmap.md” if it corresponds to a project milestone.  

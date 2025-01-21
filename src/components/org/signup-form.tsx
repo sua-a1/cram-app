@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,18 +15,18 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { signUpAction } from '@/app/(auth)/auth/signup/actions'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { signUpAction } from '@/app/(org)/org/signup/actions'
 import { useToast } from '@/hooks/use-toast'
-
-// Add a simple debug component
-function Debug({ value }: { value: any }) {
-  useEffect(() => {
-    console.log('Debug component mounted with value:', value)
-  }, [value])
-  return null
-}
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -37,16 +37,16 @@ const signUpSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
-  display_name: z.string().min(2, 'Display name must be at least 2 characters'),
+  organization_name: z.string().min(2, 'Organization name must be at least 2 characters'),
+  role: z.enum(['admin', 'employee'], {
+    required_error: 'Please select a role',
+  }),
+  department: z.string().min(2, 'Department must be at least 2 characters'),
 })
 
 type SignUpValues = z.infer<typeof signUpSchema>
 
-export function SignUpForm() {
-  useEffect(() => {
-    console.log('SignUpForm mounted')
-  }, [])
-
+export function OrgSignUpForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -60,29 +60,29 @@ export function SignUpForm() {
     defaultValues: {
       email: '',
       password: '',
-      display_name: '',
+      organization_name: '',
+      role: 'employee',
+      department: '',
     },
   })
 
-  // Debug form errors
-  const formState = form.formState
-  console.log('Form errors:', formState.errors)
-
   async function onSubmit(data: SignUpValues) {
     setIsLoading(true)
-    console.log('Form submission started with data:', data)
+    console.log('Starting organization sign up...')
 
     try {
       const formData = new FormData()
       formData.append('email', data.email)
       formData.append('password', data.password)
-      formData.append('display_name', data.display_name)
+      formData.append('organization_name', data.organization_name)
+      formData.append('role', data.role)
+      formData.append('department', data.department)
       
       const result = await signUpAction(formData)
-      console.log('SignUpAction result:', result)
+      console.log('Sign up result:', result)
 
       if (result?.error) {
-        console.error('SignUp error:', result.error)
+        console.error('Sign up error:', result.error)
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -92,12 +92,12 @@ export function SignUpForm() {
       }
 
       toast({
-        title: 'Check your email',
-        description: 'We sent you a verification link.',
+        title: 'Success',
+        description: 'Your organization account is pending approval. Please check your email.',
       })
 
       // Redirect after successful signup
-      router.push(redirectUrl ? `/auth/signin?redirect=${encodeURIComponent(redirectUrl)}` : '/auth/signin')
+      router.push(redirectUrl ? `/org/signin?redirect=${encodeURIComponent(redirectUrl)}` : '/org/signin')
     } catch (error) {
       console.error('Unexpected error during sign up:', error)
       toast({
@@ -112,28 +112,42 @@ export function SignUpForm() {
 
   return (
     <div className="space-y-6">
-      <Debug value="form-mounted" />
       <Form {...form}>
-        <form 
-          onSubmit={(e) => {
-            console.log('Form submit event triggered')
-            form.handleSubmit(onSubmit)(e)
-          }} 
-          className="space-y-4"
-        >
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
             name="email"
             render={({ field }: { field: ControllerRenderProps<SignUpValues, "email"> }) => (
               <FormItem>
-                <FormLabel>Email</FormLabel>
+                <FormLabel>Work Email</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="you@example.com"
+                    placeholder="you@organization.com"
                     type="email"
                     autoCapitalize="none"
                     autoComplete="email"
                     autoCorrect="off"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormDescription>
+                  Please use your work email address
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="organization_name"
+            render={({ field }: { field: ControllerRenderProps<SignUpValues, "organization_name"> }) => (
+              <FormItem>
+                <FormLabel>Organization Name</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Acme Inc."
+                    autoCapitalize="words"
                     disabled={isLoading}
                     {...field}
                   />
@@ -144,13 +158,41 @@ export function SignUpForm() {
           />
           <FormField
             control={form.control}
-            name="display_name"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "display_name"> }) => (
+            name="role"
+            render={({ field }: { field: ControllerRenderProps<SignUpValues, "role"> }) => (
               <FormItem>
-                <FormLabel>Display Name</FormLabel>
+                <FormLabel>Role</FormLabel>
+                <Select 
+                  disabled={isLoading} 
+                  onValueChange={field.onChange} 
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select your role" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    <SelectItem value="admin">Administrator</SelectItem>
+                    <SelectItem value="employee">Support Employee</SelectItem>
+                  </SelectContent>
+                </Select>
+                <FormDescription>
+                  Administrators can manage team members and settings
+                </FormDescription>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="department"
+            render={({ field }: { field: ControllerRenderProps<SignUpValues, "department"> }) => (
+              <FormItem>
+                <FormLabel>Department</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="John Doe"
+                    placeholder="Support Team"
                     autoCapitalize="words"
                     disabled={isLoading}
                     {...field}
@@ -176,36 +218,32 @@ export function SignUpForm() {
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>
+                  Must be at least 8 characters with uppercase, lowercase, and number
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
           />
-          <Button 
-            type="submit" 
-            className="w-full" 
-            disabled={isLoading}
-            onClick={() => console.log('Button clicked')}
-          >
+          <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Create account
+            Register Organization
           </Button>
         </form>
       </Form>
-      <div className="flex items-center justify-between">
-        <div className="text-sm">
-          Already have an account?{' '}
-          <Link
-            href={{
-              pathname: '/auth/signin',
-              query: redirectUrl ? { redirect: redirectUrl } : undefined,
-            }}
-            className="font-medium text-primary hover:underline"
-          >
-            Sign in
-          </Link>
-        </div>
+      <div className="text-center text-sm">
+        Already have an organization account?{' '}
+        <Link 
+          href={{
+            pathname: '/org/signin',
+            query: redirectUrl ? { redirect: redirectUrl } : undefined
+          }}
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Sign in
+        </Link>
       </div>
     </div>
   )

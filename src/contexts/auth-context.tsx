@@ -10,6 +10,8 @@ import {
 import { useRouter } from 'next/navigation'
 import type { User } from '@supabase/supabase-js'
 import { useToast } from '@/hooks/use-toast'
+import { signOut } from '@/app/(auth)/actions'
+import { getUser } from '@/lib/client/supabase'
 
 interface AuthContextType {
   user: User | null
@@ -33,14 +35,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function checkUser() {
     try {
-      const response = await fetch('/api/auth/user')
-      const data = await response.json()
-
-      if (data.user) {
-        setUser(data.user)
-      } else {
-        setUser(null)
-      }
+      const user = await getUser()
+      setUser(user)
     } catch (error) {
       console.error('Error checking auth status:', error)
       setUser(null)
@@ -49,18 +45,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signOut() {
+  async function handleSignOut() {
     try {
-      const response = await fetch('/api/auth/signout', {
-        method: 'POST',
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to sign out')
-      }
-
+      await signOut()
       setUser(null)
-      router.push('/signin')
       toast({
         title: 'Signed out successfully',
       })
@@ -81,7 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value = {
     user,
     isLoading,
-    signOut,
+    signOut: handleSignOut,
     refreshUser,
   }
 
