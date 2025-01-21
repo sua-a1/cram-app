@@ -21,11 +21,14 @@ export default function HomePage() {
               <span className="inline-block font-bold">Cram Support</span>
             </Link>
           </div>
-          <nav>
-            <Link href="/login">
-              <Button variant="secondary">Sign in</Button>
+          <div className="flex gap-4">
+            <Link href="/signin">
+              <Button variant="ghost">Sign in</Button>
             </Link>
-          </nav>
+            <Link href="/signup">
+              <Button>Create account</Button>
+            </Link>
+          </div>
         </div>
       </header>
       <main className="flex-1">
@@ -40,7 +43,7 @@ export default function HomePage() {
               Manage requests, collaborate with your team, and deliver exceptional service.
             </p>
             <div className="space-x-4">
-              <Link href="/register">
+              <Link href="/signup">
                 <Button size="lg" className="gap-2">
                   Get Started
                   <ArrowRight className="h-4 w-4" />

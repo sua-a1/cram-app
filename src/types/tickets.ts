@@ -10,7 +10,7 @@ export type TicketMessageUpdate = Database['public']['Tables']['ticket_messages'
 
 export type TicketStatus = Ticket['status']
 export type TicketPriority = Ticket['priority']
-export type MessageType = TicketMessage['type']
+export type MessageType = TicketMessage['message_type']
 
 export interface TicketStats {
   open: number

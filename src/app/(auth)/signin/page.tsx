@@ -13,10 +13,10 @@ export default function SignInPage() {
       <div className="flex flex-col space-y-6">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back
+            Sign in to your account
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your credentials to sign in to your account
+            Enter your email and password to sign in
           </p>
         </div>
         <SignInForm />

@@ -3,10 +3,10 @@ export type UserRole = 'customer' | 'employee' | 'admin'
 export interface User {
   id: string
   email: string
-  role: UserRole
-  displayName: string
-  createdAt: string
-  updatedAt: string
+  display_name: string
+  role: 'admin' | 'employee' | 'customer'
+  created_at: string
+  updated_at: string
 }
 
 export interface Ticket {

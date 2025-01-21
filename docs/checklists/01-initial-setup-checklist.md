@@ -42,13 +42,13 @@
       - [x] /auth (authentication components)
       - [x] /tickets (ticket-related components)
       - [x] /dashboard (dashboard components)
-    - [ ] /lib
-      - [ ] /server
-        - [ ] /supabase.ts (server-side Supabase client)
-        - [ ] /tickets-logic.ts (centralized ticket operations)
-      - [ ] /client
-        - [ ] /supabase.ts (client-side Supabase auth)
-      - [ ] /utils (shared utilities)
+    - [x] /lib
+      - [x] /server
+        - [x] /supabase.ts (server-side Supabase client)
+        - [x] /tickets-logic.ts (centralized ticket operations)
+      - [x] /client
+        - [x] /supabase.ts (client-side Supabase auth)
+      - [x] /utils (shared utilities)
     - [x] /hooks (custom React hooks)
       - [x] use-auth.ts (authentication hook)
       - [x] use-tickets.ts (ticket management hook)

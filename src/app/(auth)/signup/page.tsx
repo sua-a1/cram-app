@@ -1,25 +1,25 @@
 import { Metadata } from 'next'
-import { SignInForm } from '@/components/auth/signin-form'
+import { SignUpForm } from '@/components/auth/signup-form'
 import { AuthLayout } from '@/components/auth/auth-layout'
 
 export const metadata: Metadata = {
-  title: 'Sign In - Cram Support',
-  description: 'Sign in to your account',
+  title: 'Sign Up - Cram Support',
+  description: 'Create a new account',
 }
 
-export default function SignInPage() {
+export default function SignUpPage() {
   return (
     <AuthLayout>
       <div className="flex flex-col space-y-6">
         <div className="flex flex-col space-y-2 text-center">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome back
+            Create an account
           </h1>
           <p className="text-sm text-muted-foreground">
-            Enter your credentials to sign in to your account
+            Enter your details below to create your account
           </p>
         </div>
-        <SignInForm />
+        <SignUpForm />
       </div>
     </AuthLayout>
   )

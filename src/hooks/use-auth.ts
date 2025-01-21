@@ -13,6 +13,11 @@ export function useAuth() {
     auth.getSession().then(({ session, error }) => {
       setUser(session?.user ?? null)
       setLoading(false)
+
+      if (!session) {
+        router.push('/signin')
+        return null
+      }
     })
 
     // Listen for auth changes
@@ -26,7 +31,7 @@ export function useAuth() {
       }
       if (event === 'SIGNED_OUT') {
         router.refresh()
-        router.push('/login')
+        router.push('/signin')
       }
     })
 

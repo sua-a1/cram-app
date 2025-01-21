@@ -6,8 +6,8 @@ cram-app/
 ├── src/                      # Source code
 │   ├── app/                  # Next.js 13 app directory
 │   │   ├── (auth)/          # Authentication route group
-│   │   │   ├── login/       # Login page
-│   │   │   ├── register/    # Registration page
+│   │   │   ├── signin/       # Sign-in/Log-in page
+│   │   │   ├── signup/       # Sign-upRegistration page
 │   │   │   └── layout.tsx   # Auth layout
 │   │   ├── (dashboard)/     # Dashboard route group
 │   │   │   ├── admin/       # Admin pages
