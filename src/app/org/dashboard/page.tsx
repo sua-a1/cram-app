@@ -1,5 +1,13 @@
 import { SignOutButton } from '@/components/org/signout-button'
 import { createServiceClient } from '@/lib/server/supabase'
+import { TicketSection } from '@/components/dashboard/ticket-section'
+import { createTicket, updateTicket, getOrganizationTickets, getTicketStats } from '@/lib/server/tickets'
+import type { 
+  TicketWithDetails, 
+  CreateTicketInput, 
+  UpdateTicketInput 
+} from '@/types/tickets'
+import { revalidatePath } from 'next/cache'
 
 export default async function Dashboard({
   searchParams
@@ -10,7 +18,9 @@ export default async function Dashboard({
   const serviceClient = createServiceClient()
   let profile = null
   let org = null
-  let errors = []
+  let tickets: TicketWithDetails[] = []
+  let ticketStats = { open: 0, inProgress: 0, closed: 0 }
+  let errors: string[] = []
 
   // Try to get profile if we have userId
   if (userId) {
@@ -39,7 +49,37 @@ export default async function Dashboard({
       errors.push(`Error fetching organization: ${orgError.message}`)
     } else {
       org = orgData
+
+      // Get tickets and stats if we have org
+      try {
+        tickets = await getOrganizationTickets(orgId)
+        const stats = await getTicketStats(orgId)
+        ticketStats = {
+          open: stats['open'] || 0,
+          inProgress: stats['in-progress'] || 0,
+          closed: stats['closed'] || 0
+        }
+      } catch (error: any) {
+        errors.push(`Error fetching tickets: ${error?.message || 'Unknown error'}`)
+      }
     }
+  }
+
+  async function handleCreateTicket(data: CreateTicketInput) {
+    'use server'
+    if (!userId) throw new Error('User ID is required')
+    await createTicket({
+      ...data,
+      userId,
+      handling_org_id: orgId!
+    })
+    revalidatePath('/org/dashboard')
+  }
+
+  async function handleEditTicket(id: string, data: UpdateTicketInput) {
+    'use server'
+    await updateTicket(id, data)
+    revalidatePath('/org/dashboard')
   }
 
   return (
@@ -70,7 +110,8 @@ export default async function Dashboard({
           </div>
         )}
 
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {/* Organization Info */}
+        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 mb-8">
           <div className="rounded-lg border bg-card text-card-foreground shadow-sm p-6">
             <h3 className="font-semibold mb-2">Organization ID</h3>
             <p className="text-sm text-muted-foreground">{orgId || 'Not provided'}</p>
@@ -96,6 +137,18 @@ export default async function Dashboard({
             )}
           </div>
         </div>
+
+        {/* Tickets Section */}
+        {orgId && profile && (
+          <TicketSection
+            orgId={orgId}
+            isAdmin={profile.role === 'admin'}
+            tickets={tickets}
+            stats={ticketStats}
+            onCreateTicket={handleCreateTicket}
+            onEditTicket={handleEditTicket}
+          />
+        )}
       </main>
     </div>
   )

@@ -1,23 +1,30 @@
-import { createBrowserClient } from '@supabase/ssr'
-import type { Database } from '@/types/supabase'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@/types/database.types'
 
-const supabase = createBrowserClient<Database>(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-)
+export function createBrowserClient(): SupabaseClient<Database> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export function createClient() {
-  return supabase
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing Supabase environment variables')
+  }
+
+  return createSupabaseClient<Database>(supabaseUrl, supabaseKey)
+}
+
+export function createClient(): SupabaseClient<Database> {
+  return createBrowserClient()
 }
 
 export async function getUser() {
   try {
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+    const { data: { session }, error: sessionError } = await createBrowserClient().auth.getSession()
     if (sessionError || !session) {
       return null
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser()
+    const { data: { user }, error: userError } = await createBrowserClient().auth.getUser()
     if (userError || !user) {
       return null
     }
@@ -44,7 +51,7 @@ export async function getUser() {
 // Auth helpers
 export const auth = {
   signUp: async ({ email, password, name }: { email: string; password: string; name: string }) => {
-    const { data, error } = await supabase.auth.signUp({
+    const { data, error } = await createBrowserClient().auth.signUp({
       email,
       password,
       options: {
@@ -57,7 +64,7 @@ export const auth = {
   },
 
   signIn: async ({ email, password }: { email: string; password: string }) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await createBrowserClient().auth.signInWithPassword({
       email,
       password
     })
@@ -65,16 +72,16 @@ export const auth = {
   },
 
   signOut: async () => {
-    const { error } = await supabase.auth.signOut()
+    const { error } = await createBrowserClient().auth.signOut()
     return { error }
   },
 
   getSession: async () => {
-    const { data: { session }, error } = await supabase.auth.getSession()
+    const { data: { session }, error } = await createBrowserClient().auth.getSession()
     return { session, error }
   },
 
   onAuthStateChange: (callback: (event: any, session: any) => void) => {
-    return supabase.auth.onAuthStateChange(callback)
+    return createBrowserClient().auth.onAuthStateChange(callback)
   }
 } 

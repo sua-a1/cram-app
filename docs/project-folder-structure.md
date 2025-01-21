@@ -38,78 +38,68 @@ src/
 │   │       ├── page.tsx   # Ticket list
 │   │       ├── new/       # New ticket
 │   │       └── [id]/      # Ticket details
-│   ├── org/             # Organization routes
-│   │   ├── (routes)/(auth)/   # Organization auth routes
-│   │   │   ├── signin/    # Org sign in
-│   │   │   ├── signup/    # Org sign up
-│   │   │   ├── access/    # Get org access
-│   │   │   ├── register/  # Register new org
-│   │   │   ├── callback/  # Auth callback handling
-│   │   │   ├── reset-password/  # Password reset
-│   │   │   └── update-password/ # Password update
-│   │   └── [orgId]/       # Dynamic org routes
-│   │       ├── layout.tsx # Shared org layout
-│   │       ├── (admin)/   # Admin routes
-│   │       │   ├── layout.tsx  # Admin layout
-│   │       │   ├── page.tsx    # Admin dashboard
-│   │       │   └── settings/   # Admin settings
-│   │       ├── (employee)/ # Employee routes
-│   │       │   ├── layout.tsx  # Employee layout
-│   │       │   ├── page.tsx    # Employee dashboard
-│   │       │   └── tickets/    # Ticket management
-│   │       └── (shared)/   # Shared org features
-│   │           ├── tickets/    # Ticket features
-│   │           └── settings/   # Org settings
+│   ├── org/               # Organization routes
+│   │   ├── layout.tsx     # Org layout
+│   │   ├── page.tsx       # Org landing
+│   │   ├── dashboard/     # Main dashboard
+│   │   │   ├── layout.tsx # Dashboard layout
+│   │   │   └── page.tsx   # Dashboard with tickets
+│   │   ├── auth/         # Organization auth
+│   │   └── (routes)/     # Additional org routes
+│   ├── api/               # API routes
+│   │   ├── tickets/      # Ticket API endpoints
+│   │   └── teams/        # Team API endpoints
 │   ├── layout.tsx         # Root layout
 │   ├── page.tsx           # Landing page
 │   └── globals.css        # Global styles
 ├── components/            # React components
 │   ├── auth/             # Authentication components
-│   ├── customer/         # Customer components
-│   │   ├── ticket-list.tsx     # Ticket list component
-│   │   ├── ticket-form.tsx     # Ticket creation form
-│   │   └── ticket-details.tsx  # Ticket details view
-│   ├── org/              # Organization components
-│   │   ├── access-form.tsx     # Org access form
-│   │   ├── registration-form.tsx # Org registration
-│   │   └── dashboard/          # Dashboard components
-│   ├── tickets/          # Shared ticket components
+│   ├── tickets/          # Ticket components
+│   │   ├── ticket-list.tsx      # Ticket listing
+│   │   ├── ticket-form.tsx      # Ticket creation/edit
+│   │   ├── ticket-details.tsx   # Ticket view
+│   │   ├── ticket-status.tsx    # Status management
+│   │   └── ticket-filters.tsx   # Filter/sort controls
+│   ├── dashboard/         # Dashboard components
 │   └── ui/               # Shared UI components
-├── contexts/             # React contexts
-├── hooks/                # Custom React hooks
 ├── lib/                  # Shared utilities
-│   └── server/          # Server-side utilities
-├── middleware.ts         # Next.js middleware
-└── types/               # TypeScript types
+│   ├── server/          # Server-side utilities
+│   │   ├── tickets.ts   # Ticket server actions
+│   │   └── auth.ts      # Auth server actions
+│   └── utils/           # Shared utilities
+├── types/               # TypeScript types
+│   ├── tickets.ts      # Ticket types
+│   └── database.ts     # Database types
+├── contexts/            # React contexts
+├── hooks/               # Custom React hooks
+│   └── use-tickets.ts  # Ticket-related hooks
+└── middleware.ts        # Next.js middleware
 ```
 
 ## Key Files and Directories
 
-### Customer Portal
-- `src/app/(customer)/`: Customer-specific routes and features
-- `src/app/(customer)/tickets/`: Ticket management for customers
-- `src/components/customer/`: Customer-specific components
+### Dashboard & Ticket Management
+- `src/app/org/dashboard/`: Main dashboard with ticket management
+- `src/components/tickets/`: Ticket-related components
+- `src/lib/server/tickets.ts`: Ticket server actions and logic
+- `src/types/tickets.ts`: Ticket type definitions
+- `src/hooks/use-tickets.ts`: Ticket-related hooks
 
 ### Organization Management
-- `src/app/(org)/(auth)/`: Organization authentication flows
-- `src/app/(org)/[orgId]/`: Organization-specific routes and features
-- `src/components/org/`: Organization-related components
-- `src/lib/server/auth-logic.ts`: Authentication and authorization logic
+- `src/app/org/`: Organization routes and features
+- `src/app/org/dashboard/`: Main organization dashboard
+- `src/app/org/auth/`: Organization auth flows
 
 ### Authentication
-- `src/app/(auth)/auth/`: Public authentication flows
-- `src/app/(auth)/user/`: Protected user settings
+- `src/app/(auth)/`: Authentication routes
 - `src/components/auth/`: Authentication components
-- `src/middleware.ts`: Route protection and auth state management
+- `src/middleware.ts`: Auth middleware and route protection
 
-### Database
-- `supabase/migrations/`: Database migrations
-- `supabase/types/`: Generated database types
-
-### UI Components
-- `src/components/ui/`: Shared UI components (buttons, forms, etc.)
-- `src/components/org/dashboard/`: Dashboard-specific components
-- `src/components/tickets/`: Ticket management components
+### Shared Components
+- `src/components/ui/`: Shared UI components
+- `src/lib/utils/`: Shared utilities
+- `src/contexts/`: Shared contexts
+- `src/hooks/`: Shared hooks
 
 ### Documentation
 - `docs/`: Project documentation
