@@ -1,15 +1,16 @@
 import { createBrowserClient } from '@supabase/ssr'
 import type { Database } from '@/types/supabase'
 
+const supabase = createBrowserClient<Database>(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
+
 export function createClient() {
-  return createBrowserClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
+  return supabase
 }
 
 export async function getUser() {
-  const supabase = createClient()
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession()
     if (sessionError || !session) {
@@ -21,21 +22,18 @@ export async function getUser() {
       return null
     }
 
-    // Get user role from profiles table
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('user_id', user.id)
-      .single()
-    
-    if (profileError) {
-      console.error('Error fetching user role:', profileError)
+    // Pass the user ID to the profile endpoint
+    const response = await fetch(`/api/profile?userId=${user.id}`)
+    if (!response.ok) {
+      console.error('Error fetching profile:', await response.text())
       return user
     }
+
+    const profile = await response.json()
     
     return {
       ...user,
-      role: profile?.role
+      profile
     }
   } catch (error) {
     console.error('Error getting user:', error)

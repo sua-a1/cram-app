@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
-import { Building2, Loader2 } from 'lucide-react'
+import { LogIn, Loader2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -18,43 +18,40 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { registerAction } from '@/app/org/(routes)/org-auth/register/actions'
+import { joinAction } from '@/app/org/(routes)/org-auth/access/actions'
 
 // Validation schema
-const registerSchema = z.object({
-  name: z.string().min(2, 'Organization name must be at least 2 characters'),
-  domain: z.string().optional(),
+const joinSchema = z.object({
+  organizationId: z.string().uuid('Please enter a valid organization ID'),
 })
 
-type RegisterValues = z.infer<typeof registerSchema>
+type JoinValues = z.infer<typeof joinSchema>
 
-export function OrgRegisterForm() {
+export function OrgJoinForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
   const { toast } = useToast()
 
   // Initialize form
-  const form = useForm<RegisterValues>({
-    resolver: zodResolver(registerSchema),
+  const form = useForm<JoinValues>({
+    resolver: zodResolver(joinSchema),
     defaultValues: {
-      name: '',
-      domain: '',
+      organizationId: '',
     },
   })
 
-  async function onSubmit(data: RegisterValues) {
+  async function onSubmit(data: JoinValues) {
     setIsLoading(true)
 
     try {
       const formData = new FormData()
-      formData.append('name', data.name)
-      if (data.domain) formData.append('domain', data.domain)
+      formData.append('organizationId', data.organizationId)
 
-      const result = await registerAction(formData)
+      const result = await joinAction(formData)
 
       if (result?.error) {
         toast({
-          title: 'Registration failed',
+          title: 'Failed to join organization',
           description: result.error.message || 'Please try again later.',
           variant: 'destructive',
         })
@@ -62,8 +59,8 @@ export function OrgRegisterForm() {
       }
 
       toast({
-        title: 'Organization registered',
-        description: 'Your organization has been registered successfully.',
+        title: 'Successfully joined organization',
+        description: `You have joined ${result.organizationName}`,
       })
 
       // Note: No need to redirect here as the server action handles it
@@ -83,26 +80,15 @@ export function OrgRegisterForm() {
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <FormField
           control={form.control}
-          name="name"
+          name="organizationId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Organization Name</FormLabel>
+              <FormLabel>Organization ID</FormLabel>
               <FormControl>
-                <Input placeholder="Acme Inc." {...field} />
-              </FormControl>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
-        <FormField
-          control={form.control}
-          name="domain"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Domain (Optional)</FormLabel>
-              <FormControl>
-                <Input placeholder="acme.com" {...field} />
+                <Input 
+                  placeholder="Enter organization ID" 
+                  {...field} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -113,12 +99,12 @@ export function OrgRegisterForm() {
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Registering...
+              Joining...
             </>
           ) : (
             <>
-              <Building2 className="mr-2 h-4 w-4" />
-              Register Organization
+              <LogIn className="mr-2 h-4 w-4" />
+              Join Organization
             </>
           )}
         </Button>

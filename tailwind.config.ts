@@ -6,6 +6,9 @@ const config: Config = {
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/(org)/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/(auth)/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/app/(customer)/**/*.{js,ts,jsx,tsx,mdx}",
   ],
   theme: {
   	container: {

@@ -13,8 +13,22 @@ import { useToast } from '@/hooks/use-toast'
 import { signOut } from '@/app/(auth)/actions'
 import { getUser } from '@/lib/client/supabase'
 
+interface Profile {
+  created_at: string
+  updated_at: string
+  user_id: string
+  email: string
+  display_name: string
+  role: string
+  org_id: string | null
+}
+
+interface AuthUser extends User {
+  profile?: Profile
+}
+
 interface AuthContextType {
-  user: User | null
+  user: AuthUser | null
   isLoading: boolean
   signOut: () => Promise<void>
   refreshUser: () => Promise<void>
@@ -23,7 +37,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null)
+  const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
   const { toast } = useToast()
@@ -36,7 +50,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function checkUser() {
     try {
       const user = await getUser()
-      setUser(user)
+      setUser(user as AuthUser)
     } catch (error) {
       console.error('Error checking auth status:', error)
       setUser(null)

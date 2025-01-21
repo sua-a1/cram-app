@@ -29,7 +29,7 @@ export default function HomePage() {
                   Customer Sign In
                 </Button>
               </Link>
-              <Link href="/org/signin">
+              <Link href="/org/org-auth/signin">
                 <Button variant="ghost" className="gap-2">
                   <Building2 className="h-4 w-4" />
                   Organization Sign In
@@ -70,7 +70,7 @@ export default function HomePage() {
                 <p className="text-sm text-muted-foreground">
                   Manage your support team and handle customer requests
                 </p>
-                <Link href="/org/signup">
+                <Link href="/org/org-auth/signup">
                   <Button size="lg" variant="outline" className="gap-2">
                     Join as Organization
                     <ArrowRight className="h-4 w-4" />

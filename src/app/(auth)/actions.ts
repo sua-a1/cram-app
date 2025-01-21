@@ -16,7 +16,7 @@ export async function getCurrentUser() {
     // Get user role from profiles table
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, org_id')
       .eq('user_id', user.id)
       .single()
     
@@ -27,7 +27,8 @@ export async function getCurrentUser() {
     
     return {
       ...user,
-      role: profile?.role
+      role: profile?.role,
+      org_id: profile?.org_id
     }
   } catch (error) {
     console.error('Error in getCurrentUser:', error)
@@ -102,19 +103,22 @@ export async function handleSignIn(formData: FormData) {
     // Get user role and redirect accordingly
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, org_id')
       .eq('user_id', user.id)
       .single()
 
-    const role = profile?.role || 'customer'
-    
-    switch (role) {
-      case 'admin':
-        redirect('/admin/dashboard')
-      case 'employee':
-        redirect('/employee/dashboard')
-      default:
-        redirect('/dashboard')
+    if (!profile) {
+      redirect('/org/access')
+    }
+
+    if (profile.role === 'admin' && profile.org_id) {
+      redirect(`/${profile.org_id}/admin`)
+    } else if (profile.role === 'employee' && profile.org_id) {
+      redirect(`/${profile.org_id}/employee`)
+    } else if (profile.role === 'customer') {
+      redirect('/')
+    } else {
+      redirect('/org/access')
     }
   } catch (error) {
     console.error('Error in handleSignIn:', error)

@@ -25,11 +25,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { signUpAction } from '@/app/(org)/org/signup/actions'
+import { signUpAction } from '@/app/org/(routes)/org-auth/signup/actions'
 import { useToast } from '@/hooks/use-toast'
+
+type SignUpResponse = {
+  success?: boolean
+  error?: string
+  message?: string
+}
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
+  displayName: z.string()
+    .min(2, 'Display name must be at least 2 characters')
+    .max(50, 'Display name must be less than 50 characters')
+    .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Display name can only contain letters, numbers, spaces, hyphens, and underscores'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -37,11 +47,13 @@ const signUpSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
-  organization_name: z.string().min(2, 'Organization name must be at least 2 characters'),
+  confirmPassword: z.string(),
   role: z.enum(['admin', 'employee'], {
     required_error: 'Please select a role',
   }),
-  department: z.string().min(2, 'Department must be at least 2 characters'),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 })
 
 type SignUpValues = z.infer<typeof signUpSchema>
@@ -59,10 +71,10 @@ export function OrgSignUpForm() {
     resolver: zodResolver(signUpSchema),
     defaultValues: {
       email: '',
+      displayName: '',
       password: '',
-      organization_name: '',
+      confirmPassword: '',
       role: 'employee',
-      department: '',
     },
   })
 
@@ -74,9 +86,8 @@ export function OrgSignUpForm() {
       const formData = new FormData()
       formData.append('email', data.email)
       formData.append('password', data.password)
-      formData.append('organization_name', data.organization_name)
       formData.append('role', data.role)
-      formData.append('department', data.department)
+      formData.append('displayName', data.displayName)
       
       const result = await signUpAction(formData)
       console.log('Sign up result:', result)
@@ -86,20 +97,22 @@ export function OrgSignUpForm() {
         toast({
           variant: 'destructive',
           title: 'Error',
-          description: result.error,
+          description: typeof result.error === 'string' ? result.error : 'Failed to sign up',
         })
         return
       }
 
       toast({
         title: 'Success',
-        description: 'Your organization account is pending approval. Please check your email.',
+        description: result.message || 'Account created successfully. Please check your email to verify your account.',
       })
 
-      // Redirect after successful signup
-      router.push(redirectUrl ? `/org/signin?redirect=${encodeURIComponent(redirectUrl)}` : '/org/signin')
+      // Add a small delay to allow the toast to show
+      setTimeout(() => {
+        router.push('/org/org-auth/signin')
+      }, 1500)
     } catch (error) {
-      console.error('Unexpected error during sign up:', error)
+      console.error('Unexpected error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -140,18 +153,23 @@ export function OrgSignUpForm() {
           />
           <FormField
             control={form.control}
-            name="organization_name"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "organization_name"> }) => (
+            name="displayName"
+            render={({ field }: { field: ControllerRenderProps<SignUpValues, "displayName"> }) => (
               <FormItem>
-                <FormLabel>Organization Name</FormLabel>
+                <FormLabel>Display Name</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="Acme Inc."
+                    placeholder="John Smith"
+                    type="text"
                     autoCapitalize="words"
+                    autoComplete="name"
                     disabled={isLoading}
                     {...field}
                   />
                 </FormControl>
+                <FormDescription>
+                  This is how you'll appear to others
+                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -186,26 +204,8 @@ export function OrgSignUpForm() {
           />
           <FormField
             control={form.control}
-            name="department"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "department"> }) => (
-              <FormItem>
-                <FormLabel>Department</FormLabel>
-                <FormControl>
-                  <Input
-                    placeholder="Support Team"
-                    autoCapitalize="words"
-                    disabled={isLoading}
-                    {...field}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
             name="password"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "password"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Password</FormLabel>
                 <FormControl>
@@ -225,19 +225,37 @@ export function OrgSignUpForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading && (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          <FormField
+            control={form.control}
+            name="confirmPassword"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Confirm Password</FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="••••••••"
+                    type="password"
+                    autoCapitalize="none"
+                    autoComplete="new-password"
+                    disabled={isLoading}
+                    {...field}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-            Register Organization
+          />
+          <Button type="submit" className="w-full" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Create Organization Account
           </Button>
         </form>
       </Form>
       <div className="text-center text-sm">
-        Already have an organization account?{' '}
+        Already have an account?{' '}
         <Link 
           href={{
-            pathname: '/org/signin',
+            pathname: '/org/org-auth/signin',
             query: redirectUrl ? { redirect: redirectUrl } : undefined
           }}
           className="text-primary underline-offset-4 hover:underline"
