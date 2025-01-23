@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, type ControllerRenderProps } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,13 +17,13 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { signInAction } from '@/app/(auth)/auth/signin/actions'
 import { useToast } from '@/hooks/use-toast'
+import type { SignInCredentials } from '@/types/auth'
 
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(1, 'Password is required'),
-})
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+}) satisfies z.ZodType<SignInCredentials>
 
 type SignInValues = z.infer<typeof signInSchema>
 
@@ -34,7 +34,7 @@ export function SignInForm() {
   const { toast } = useToast()
 
   // Get redirect URL from query params
-  const redirectUrl = searchParams.get('redirect') || '/customer'
+  const redirectUrl = searchParams.get('next') || '/customer'
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -46,42 +46,37 @@ export function SignInForm() {
 
   async function onSubmit(data: SignInValues) {
     setIsLoading(true)
-    console.log('Starting sign in...')
 
     try {
       const formData = new FormData()
       formData.append('email', data.email)
       formData.append('password', data.password)
 
-      const result = await signInAction(formData)
-      console.log('Sign in result:', result)
+      const response = await fetch('/api/auth/signin', {
+        method: 'POST',
+        body: formData,
+      })
 
-      if (result?.error) {
-        console.error('Sign in error:', result.error)
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: result.error,
-        })
-        return
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Something went wrong')
       }
 
-      if (result?.success) {
-        toast({
-          title: 'Success',
-          description: 'Welcome back!',
-        })
+      toast({
+        title: 'Success',
+        description: 'Welcome back!',
+      })
 
-        // Add a small delay to allow the toast to show
-        await new Promise(resolve => setTimeout(resolve, 500))
-        router.push(redirectUrl)
-      }
+      // Add a small delay to allow the toast to show
+      await new Promise(resolve => setTimeout(resolve, 500))
+      router.push(redirectUrl)
     } catch (error) {
-      console.error('Unexpected error:', error)
+      console.error('Sign in error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
     } finally {
       setIsLoading(false)
@@ -95,7 +90,7 @@ export function SignInForm() {
           <FormField
             control={form.control}
             name="email"
-            render={({ field }: { field: ControllerRenderProps<SignInValues, "email"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
@@ -116,7 +111,7 @@ export function SignInForm() {
           <FormField
             control={form.control}
             name="password"
-            render={({ field }: { field: ControllerRenderProps<SignInValues, "password"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <div className="flex items-center justify-between">
                   <FormLabel>Password</FormLabel>

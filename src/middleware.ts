@@ -1,98 +1,139 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
-import type { Database } from '@/types/supabase'
+import { createServerClient } from '@supabase/ssr'
+import { NextResponse, type NextRequest } from 'next/server'
+import type { Database } from '@/types/database.types'
+import type { UserRole } from '@/types/auth'
+import type { CookieOptions } from '@supabase/ssr'
 
-type UserRole = 'admin' | 'employee' | 'customer' | 'public'
+// Define public routes that don't require authentication
+const publicRoutes = new Set([
+  '/',
+  '/auth/signin',
+  '/auth/signup',
+  '/auth/callback',
+  '/auth/reset-password',
+  '/auth/verify',
+  '/org/auth/signin',
+  '/org/auth/signup',
+  '/org/auth/callback',
+  '/org/auth/reset-password',
+  '/org/auth/verify'
+])
 
-// Define public routes
-const publicRoutes = {
-  '/': ['public'],
-  // Customer auth routes
-  '/auth/signin': ['public'],
-  '/auth/signup': ['public'],
-  '/auth/verify': ['public'],
-  '/auth/callback': ['public'],
-  '/auth/reset-password': ['public'],
-  '/auth/update-password': ['public'],
-  '/api/auth/callback': ['public'],
-  
-  // Organization auth routes
-  '/org/org-auth/signin': ['public'],
-  '/org/org-auth/signup': ['public'],
-  '/org/org-auth/access': ['public'],
-  '/org/org-auth/register': ['public'],
-  '/org/org-auth/callback': ['public'],
-  '/org/org-auth/reset-password': ['public'],
-  '/org/org-auth/update-password': ['public'],
-  '/org/dashboard': ['public'], // Allow direct access to dashboard
-}
-
-// Define protected routes and their allowed roles
+// Define routes that require specific roles
 const protectedRoutes: Record<string, UserRole[]> = {
-  '/auth/signout': ['admin', 'employee', 'customer'],
-  '/user': ['admin', 'employee', 'customer'],
-  '/org/[orgId]': ['admin', 'employee'],
-  '/tickets': ['customer'],
-  '/tickets/:path*': ['customer'],
+  '/customer': ['customer'],
+  '/customer/dashboard': ['customer'],
+  '/org': ['admin', 'employee'],
+  '/org/dashboard': ['admin', 'employee']
 }
 
-export async function middleware(req: NextRequest) {
-  const res = NextResponse.next()
-  const supabase = createMiddlewareClient({ req, res })
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
+export async function middleware(request: NextRequest) {
+  let response = NextResponse.next({
+    request: {
+      headers: request.headers,
+    },
+  })
 
-  const url = new URL(req.url)
-  const path = url.pathname
-  const returnUrl = encodeURIComponent(path)
-
-  // Check if the route is public
-  const isPublicRoute = Object.keys(publicRoutes).some(route => 
-    path === route || path.startsWith(`${route}/`)
+  // Create a Supabase client using middleware helper
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return request.cookies.get(name)?.value
+        },
+        set(name: string, value: string, options: CookieOptions) {
+          // Set cookie on the request
+          request.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+          // Set cookie on the response
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.set({
+            name,
+            value,
+            ...options,
+          })
+        },
+        remove(name: string, options: CookieOptions) {
+          // Remove cookie from the request
+          request.cookies.delete(name)
+          // Remove cookie from the response
+          response = NextResponse.next({
+            request: {
+              headers: request.headers,
+            },
+          })
+          response.cookies.delete(name)
+        },
+      },
+    }
   )
 
-  if (isPublicRoute) {
-    return res
+  // Check if the path is public
+  const path = new URL(request.url).pathname
+  if (publicRoutes.has(path)) {
+    return response
   }
 
-  // For non-public routes, check auth state
-  if (!session) {
-    return res // Allow access even without session
+  try {
+    // Get session
+    const { data: { session }, error } = await supabase.auth.getSession()
+
+    // If no session, redirect to sign in
+    if (!session) {
+      const redirectUrl = new URL('/auth/signin', request.url)
+      redirectUrl.searchParams.set('next', path)
+      return NextResponse.redirect(redirectUrl)
+    }
+
+    // For protected routes, check role permissions
+    const protectedRoute = Object.entries(protectedRoutes).find(([route]) =>
+      path.startsWith(route)
+    )
+
+    if (protectedRoute) {
+      const [_, allowedRoles] = protectedRoute
+      
+      // Get user profile for role check
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('user_id', session.user.id)
+        .single()
+
+      if (profileError || !profile || !allowedRoles.includes(profile.role)) {
+        // If user doesn't have required role, redirect to unauthorized
+        return NextResponse.redirect(new URL('/unauthorized', request.url))
+      }
+    }
+
+    return response
+  } catch (error) {
+    console.error('Middleware error:', error)
+    // On error, redirect to sign in
+    const redirectUrl = new URL('/auth/signin', request.url)
+    redirectUrl.searchParams.set('error', 'auth_error')
+    return NextResponse.redirect(redirectUrl)
   }
-
-  // Get user profile for role check
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('role, org_id')
-    .single()
-
-  // Check if route requires protection
-  const routeRoles = Object.entries(protectedRoutes).find(([route]) => 
-    path.startsWith(route)
-  )?.[1]
-
-  if (!routeRoles) {
-    return res
-  }
-
-  const userRole = profile?.role as UserRole
-
-  if (!routeRoles.includes(userRole)) {
-    console.log(`User with role ${userRole} attempted to access ${path}`)
-    return res // Allow access even with incorrect role
-  }
-
-  return res
 }
 
-// Configure which routes use this middleware
 export const config = {
   matcher: [
-    '/auth/signout',
-    '/user',
-    '/org/:path*',
-    '/tickets/:path*',
+    /*
+     * Match all request paths except for the ones starting with:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * Feel free to modify this pattern to include more paths.
+     */
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 } 

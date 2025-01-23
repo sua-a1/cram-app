@@ -1,60 +1,73 @@
 'use server'
 
-import { createServerSupabaseClient, createServiceClient } from '@/lib/server/supabase'
+import { createServerClient, createServiceClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
+import { redirect } from 'next/navigation'
+import * as z from 'zod'
+
+const signInSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+  redirect: z.string().optional(),
+})
 
 export async function signInAction(formData: FormData) {
+  const supabase = createServerClient()
+  const serviceClient = createServiceClient()
+  
   try {
-    const supabase = await createServerSupabaseClient()
-    const serviceClient = createServiceClient()
-    
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const returnUrl = formData.get('returnUrl') as string | null
+    // Validate form data
+    const validatedData = signInSchema.parse({
+      email: formData.get('email'),
+      password: formData.get('password'),
+      redirect: formData.get('redirect'),
+    })
 
-    // Sign in and get session
-    const { data, error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    // Sign in the user
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: validatedData.email,
+      password: validatedData.password,
     })
 
     if (signInError) {
       console.error('Sign in error:', signInError)
-      return { error: signInError }
+      return { error: 'Invalid email or password' }
     }
 
-    if (!data?.user) {
-      return { error: { message: 'No user data returned' } }
+    if (!signInData.user) {
+      console.error('No user data after sign in')
+      return { error: 'Failed to sign in' }
     }
 
-    // Get user's profile to check organization
+    // Get user profile to check role and organization
     const { data: profile, error: profileError } = await serviceClient
       .from('profiles')
-      .select('*')
-      .eq('user_id', data.user.id)
+      .select('role, org_id')
+      .eq('user_id', signInData.user.id)
       .single()
 
-    if (profileError) {
-      console.error('Profile error:', profileError)
-      return { error: { message: 'Failed to fetch user profile' } }
+    if (profileError || !profile) {
+      console.error('Profile fetch error:', profileError)
+      return { error: 'Failed to fetch user profile' }
     }
 
-    // If no org_id, return access page URL
-    if (!profile?.org_id) {
-      return { redirectTo: '/org/org-auth/access' }
+    // Verify that this is an organization user
+    if (!profile.org_id || !['admin', 'employee'].includes(profile.role)) {
+      await supabase.auth.signOut()
+      return { error: 'Invalid organization account' }
     }
 
-    // If returnUrl is provided and valid, use it
-    if (returnUrl && returnUrl.startsWith('/org/')) {
-      return { redirectTo: returnUrl }
-    }
+    // Redirect based on role and organization
+    const redirectPath = validatedData.redirect || `/org/${profile.org_id}/${profile.role === 'admin' ? 'admin' : 'dashboard'}`
+    redirect(redirectPath)
 
-    // Otherwise return dashboard URL with query params
-    return { 
-      redirectTo: `/org/dashboard?userId=${data.user.id}&orgId=${profile.org_id}`
-    }
   } catch (error) {
-    console.error('Unexpected error:', error)
-    return { error: { message: 'An unexpected error occurred' } }
+    console.error('Unexpected error during sign in:', error)
+    if (error instanceof z.ZodError) {
+      const { fieldErrors } = error.flatten()
+      const firstError = Object.values(fieldErrors)[0]?.[0]
+      return { error: firstError || 'Invalid form data' }
+    }
+    return { error: 'An unexpected error occurred' }
   }
 } 

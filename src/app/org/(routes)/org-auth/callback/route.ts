@@ -1,5 +1,3 @@
-'use server'
-
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
@@ -36,63 +34,76 @@ export async function GET(request: Request) {
       )
 
       // Exchange code for session
-      const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+      const { data: { session }, error: sessionError } = await supabase.auth.exchangeCodeForSession(code)
       
-      if (exchangeError || !session?.user) {
-        console.error('Auth callback error:', exchangeError)
-        return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=callback-failed`)
+      if (sessionError || !session?.user) {
+        console.error('Auth callback error:', sessionError)
+        return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=callback-failed`)
       }
 
       const user = session.user
       console.log('User from session:', user)
 
-      // Get user's profile to check if it exists
+      // Get user's profile to check organization
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('org_id, role')
         .eq('user_id', user.id)
         .single()
 
       console.log('Profile check result:', { profile, error: profileError })
 
       if (profileError?.code === 'PGRST116' || !profile) {
-        console.log('Profile not found, creating new customer profile for user:', user.id)
+        console.log('Profile not found, creating new profile for user:', user.id)
 
-        // Create profile if it doesn't exist
+        // Create profile if it doesn't exist - matching schema exactly
         const profileData = {
           user_id: user.id,
           email: user.email!,
           display_name: user.user_metadata.display_name || user.email!.split('@')[0],
-          role: 'customer',
+          role: user.user_metadata.role || 'employee',
+          org_id: null, // Will be set when joining an org
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         }
 
-        console.log('Creating customer profile with data:', profileData)
+        console.log('Creating profile with data:', profileData)
 
         const { error: createError } = await supabase
           .from('profiles')
           .insert([profileData])
 
         if (createError) {
-          console.error('Error creating customer profile:', createError)
-          return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=profile-creation-failed`)
+          console.error('Error creating profile:', createError)
+          return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=profile-creation-failed`)
         }
 
-        console.log('Created new customer profile')
+        console.log('Created new profile')
+        // Redirect to access page to join/create org
+        return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/access`)
       } else if (profileError) {
-        console.error('Unexpected customer profile error:', profileError)
-        return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=profile-error`)
+        console.error('Unexpected profile error:', profileError)
+        return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=profile-error`)
       }
 
-      // Redirect to dashboard after successful auth and profile creation
-      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+      // If user has no org_id, redirect to access page
+      if (!profile?.org_id) {
+        console.log('No org_id, redirecting to access')
+        return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/access`)
+      }
+
+      // Redirect to the appropriate dashboard based on role
+      const dashboardPath = profile.role === 'admin'
+        ? `/org/${profile.org_id}/admin`
+        : `/org/${profile.org_id}/employee`
+
+      return NextResponse.redirect(`${requestUrl.origin}${dashboardPath}`)
     }
 
     // If no code, redirect to signin
-    return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=no-code`)
+    return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=no-code`)
   } catch (error) {
     console.error('Unexpected error in callback:', error)
-    return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=unexpected`)
+    return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=unexpected`)
   }
 } 

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, type ControllerRenderProps } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -25,14 +25,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { signUpAction } from '@/app/org/(routes)/org-auth/signup/actions'
 import { useToast } from '@/hooks/use-toast'
-
-type SignUpResponse = {
-  success?: boolean
-  error?: string
-  message?: string
-}
+import { signUpAction } from '@/app/org/(routes)/org-auth/signup/actions'
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -74,13 +68,12 @@ export function OrgSignUpForm() {
       displayName: '',
       password: '',
       confirmPassword: '',
-      role: 'employee',
+      role: 'admin',
     },
   })
 
   async function onSubmit(data: SignUpValues) {
     setIsLoading(true)
-    console.log('Starting organization sign up...')
 
     try {
       const formData = new FormData()
@@ -90,7 +83,6 @@ export function OrgSignUpForm() {
       formData.append('displayName', data.displayName)
       
       const result = await signUpAction(formData)
-      console.log('Sign up result:', result)
 
       if (result?.error) {
         console.error('Sign up error:', result.error)
@@ -104,13 +96,11 @@ export function OrgSignUpForm() {
 
       toast({
         title: 'Success',
-        description: result.message || 'Account created successfully. Please check your email to verify your account.',
+        description: result.message || 'Account created successfully.',
       })
 
-      // Add a small delay to allow the toast to show
-      setTimeout(() => {
-        router.push('/org/org-auth/signin')
-      }, 1500)
+      // Redirect to access page after successful signup
+      router.push('/org/org-auth/access')
     } catch (error) {
       console.error('Unexpected error:', error)
       toast({
@@ -130,7 +120,7 @@ export function OrgSignUpForm() {
           <FormField
             control={form.control}
             name="email"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "email"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Work Email</FormLabel>
                 <FormControl>
@@ -154,7 +144,7 @@ export function OrgSignUpForm() {
           <FormField
             control={form.control}
             name="displayName"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "displayName"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Display Name</FormLabel>
                 <FormControl>
@@ -177,7 +167,7 @@ export function OrgSignUpForm() {
           <FormField
             control={form.control}
             name="role"
-            render={({ field }: { field: ControllerRenderProps<SignUpValues, "role"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Role</FormLabel>
                 <Select 
@@ -247,7 +237,7 @@ export function OrgSignUpForm() {
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Create Organization Account
+            Create Account
           </Button>
         </form>
       </Form>

@@ -23,5 +23,5 @@ These guidelines are designed to facilitate AI-first development and code mainte
    - Use “use client” sparingly, only for interactive components.
 
 6. References  
-   - See “./nextjs-rules.md” for Next.js organizational best practices.  
-   - See “./prd-rules.md” for additional references from the Project Requirements Document (PRD).
+   - See [@Next.js Rules.md](#) for Next.js organizational best practices.  
+   - See [@PRD.md](#) for additional references from the Project Requirements Document (PRD).

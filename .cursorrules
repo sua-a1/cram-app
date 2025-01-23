@@ -5,10 +5,8 @@ Concise guidelines for the Cursor Composer "Agent Mode" in the "Cram" project. L
 References:  
 • [@docs/prd.md](#) – Project Requirements Document  
 • [@docs/AI Workflow Overview.md](#)  
-• [@docs/nextjs-rules.md](#)  
-• [@docs/Next Supabase Rules.md](#)  
+• [@docs/SupabaseIntegrationRules.md](#)  
 • [@docs/Next.js Rules.md](#)  
-• [@docs/Next.js Rules With Edge.md](#)  
 • [@docs/Codebase Organization Rules.md](#)  
 • Agent Core Rules (Notepad Context)
 
@@ -70,7 +68,7 @@ References:
 • Provide concise, descriptive commit messages; do not mix unrelated changes.  
 • Write functional, type-safe TS: prefer iteration, pure functions, minimal braces.  
 • Validate inputs on the server.  
-(See [@docs/nextjs-rules.md](#), [@docs/Next.js Rules.md](#), [@docs/Next.js Rules With Edge.md](#))
+(See [@docs/Next.js Rules.md](#))
 
 --------------------------------------------------------------------------------
 

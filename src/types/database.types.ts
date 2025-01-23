@@ -6,6 +6,13 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+// Enums
+export type UserRole = 'admin' | 'employee' | 'customer'
+export type TicketStatus = 'open' | 'in-progress' | 'closed'
+export type TicketPriority = 'low' | 'medium' | 'high'
+export type MessageType = 'public' | 'internal'
+export type OrganizationStatus = 'active' | 'inactive' | 'pending'
+
 export interface Database {
   public: {
     Tables: {
@@ -14,7 +21,7 @@ export interface Database {
           id: string
           name: string
           domain: string | null
-          created_by: string
+          status: OrganizationStatus
           created_at: string
           updated_at: string
         }
@@ -22,7 +29,7 @@ export interface Database {
           id?: string
           name: string
           domain?: string | null
-          created_by: string
+          status?: OrganizationStatus
           created_at?: string
           updated_at?: string
         }
@@ -30,44 +37,39 @@ export interface Database {
           id?: string
           name?: string
           domain?: string | null
-          created_by?: string
+          status?: OrganizationStatus
           created_at?: string
           updated_at?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "organizations_created_by_fkey"
-            columns: ["created_by"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          }
-        ]
       }
       profiles: {
         Row: {
-          id: string
           user_id: string
-          org_id: string
-          role: string
           display_name: string
+          role: UserRole
+          org_id: string | null
+          department: string | null
+          position: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
-          id?: string
           user_id: string
-          org_id: string
-          role: string
           display_name: string
+          role: UserRole
+          org_id?: string | null
+          department?: string | null
+          position?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
-          id?: string
           user_id?: string
-          org_id?: string
-          role?: string
           display_name?: string
+          role?: UserRole
+          org_id?: string | null
+          department?: string | null
+          position?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -117,99 +119,56 @@ export interface Database {
           }
         ]
       }
-      ticket_messages: {
-        Row: {
-          id: string
-          ticket_id: string
-          author_id: string
-          message_type: string
-          body: string
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          id?: string
-          ticket_id: string
-          author_id: string
-          message_type: string
-          body: string
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          id?: string
-          ticket_id?: string
-          author_id?: string
-          message_type?: string
-          body?: string
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "ticket_messages_author_id_fkey"
-            columns: ["author_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "ticket_messages_ticket_id_fkey"
-            columns: ["ticket_id"]
-            referencedRelation: "tickets"
-            referencedColumns: ["id"]
-          }
-        ]
-      }
       tickets: {
         Row: {
           id: string
-          subject: string
-          description: string
-          status: string
-          priority: string
           user_id: string
+          subject: string
+          description: string | null
+          status: TicketStatus
+          priority: TicketPriority
           handling_org_id: string
-          assigned_team_id: string | null
-          assigned_employee_id: string | null
+          assigned_team: string | null
+          assigned_employee: string | null
           created_at: string
           updated_at: string
         }
         Insert: {
           id?: string
-          subject: string
-          description: string
-          status: string
-          priority: string
           user_id: string
+          subject: string
+          description?: string | null
+          status?: TicketStatus
+          priority?: TicketPriority
           handling_org_id: string
-          assigned_team_id?: string | null
-          assigned_employee_id?: string | null
+          assigned_team?: string | null
+          assigned_employee?: string | null
           created_at?: string
           updated_at?: string
         }
         Update: {
           id?: string
-          subject?: string
-          description?: string
-          status?: string
-          priority?: string
           user_id?: string
+          subject?: string
+          description?: string | null
+          status?: TicketStatus
+          priority?: TicketPriority
           handling_org_id?: string
-          assigned_team_id?: string | null
-          assigned_employee_id?: string | null
+          assigned_team?: string | null
+          assigned_employee?: string | null
           created_at?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "tickets_assigned_employee_id_fkey"
-            columns: ["assigned_employee_id"]
-            referencedRelation: "users"
-            referencedColumns: ["id"]
+            foreignKeyName: "tickets_assigned_employee_fkey"
+            columns: ["assigned_employee"]
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           },
           {
-            foreignKeyName: "tickets_assigned_team_id_fkey"
-            columns: ["assigned_team_id"]
+            foreignKeyName: "tickets_assigned_team_fkey"
+            columns: ["assigned_team"]
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
@@ -222,7 +181,84 @@ export interface Database {
           {
             foreignKeyName: "tickets_user_id_fkey"
             columns: ["user_id"]
-            referencedRelation: "users"
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          }
+        ]
+      }
+      ticket_messages: {
+        Row: {
+          id: string
+          ticket_id: string
+          author_id: string
+          message_type: MessageType
+          body: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          author_id: string
+          message_type?: MessageType
+          body: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          ticket_id?: string
+          author_id?: string
+          message_type?: MessageType
+          body?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_messages_author_id_fkey"
+            columns: ["author_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_ticket_id_fkey"
+            columns: ["ticket_id"]
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      knowledge_articles: {
+        Row: {
+          id: string
+          title: string
+          content: string
+          org_id: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          title: string
+          content: string
+          org_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          title?: string
+          content?: string
+          org_id?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_articles_org_id_fkey"
+            columns: ["org_id"]
+            referencedRelation: "organizations"
             referencedColumns: ["id"]
           }
         ]
@@ -235,7 +271,11 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: UserRole
+      ticket_status: TicketStatus
+      ticket_priority: TicketPriority
+      message_type: MessageType
+      organization_status: OrganizationStatus
     }
     CompositeTypes: {
       [_ in never]: never
