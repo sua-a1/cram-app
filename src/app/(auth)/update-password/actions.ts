@@ -1,47 +1,68 @@
 'use server'
 
 import { z } from 'zod'
-import { updatePassword } from '@/lib/server/auth-logic'
+import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 
 const updatePasswordSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password must be less than 72 characters')
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/,
       'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
-  confirmPassword: z.string(),
-}).refine((data) => data.password === data.confirmPassword, {
-  message: "Passwords don't match",
-  path: ["confirmPassword"],
 })
 
-export async function updatePasswordAction(formData: FormData) {
+export type UpdatePasswordResponse = {
+  error?: string
+  success?: string
+}
+
+export async function updatePasswordAction(formData: FormData): Promise<UpdatePasswordResponse> {
   const validatedFields = updatePasswordSchema.safeParse({
     password: formData.get('password'),
-    confirmPassword: formData.get('confirmPassword'),
   })
 
   if (!validatedFields.success) {
     return {
-      error: 'Invalid form data. Please check your input.',
-      issues: validatedFields.error.issues,
+      error: 'Invalid password format.',
     }
   }
 
   const { password } = validatedFields.data
+  const cookieStore = cookies()
+  const supabase = createClient(cookieStore)
 
   try {
-    const result = await updatePassword({ password })
-
-    if (result.error) {
-      return { error: result.error }
+    // Get the current session
+    const { data: { session } } = await supabase.auth.getSession()
+    
+    if (!session) {
+      return {
+        error: 'No active session found. Please try the reset link again.',
+      }
     }
 
-    redirect('/signin')
+    // Update the password
+    const { error } = await supabase.auth.updateUser({
+      password: password,
+    })
+
+    if (error) {
+      return { error: error.message }
+    }
+
+    // Clear the PKCE verifier cookie
+    cookieStore.delete('pkce_verifier')
+
+    return {
+      success: 'Password updated successfully.',
+    }
   } catch (error) {
+    console.error('Password update error:', error)
     return {
       error: 'Something went wrong. Please try again.',
     }

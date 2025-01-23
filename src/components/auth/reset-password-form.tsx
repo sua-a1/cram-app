@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, type ControllerRenderProps } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { resetPassword } from '@/app/(auth)/actions'
+import { resetPasswordAction } from '@/app/(auth)/reset-password/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const resetPasswordSchema = z.object({
@@ -42,7 +42,10 @@ export function ResetPasswordForm() {
     setIsLoading(true)
 
     try {
-      const result = await resetPassword(data)
+      const formData = new FormData()
+      formData.append('email', data.email)
+      
+      const result = await resetPasswordAction(formData)
 
       if (result.error) {
         toast({
@@ -53,12 +56,15 @@ export function ResetPasswordForm() {
         return
       }
 
-      setIsLoading(false)
       toast({
-        title: 'Password reset email sent',
-        description: 'Check your email for the reset link.',
+        title: 'Check your email',
+        description: result.success,
       })
-      router.push('/auth/signin')
+      
+      // Redirect to sign in page after a short delay
+      setTimeout(() => {
+        router.push('/auth/signin')
+      }, 2000)
     } catch (error) {
       toast({
         variant: 'destructive',
@@ -71,13 +77,13 @@ export function ResetPasswordForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
             name="email"
-            render={({ field }: { field: ControllerRenderProps<ResetPasswordValues, "email"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Email</FormLabel>
                 <FormControl>
@@ -103,10 +109,13 @@ export function ResetPasswordForm() {
           </Button>
         </form>
       </Form>
+      
       <div className="text-center text-sm">
-        Remember your password?{' '}
-        <Link href="/signin" className="text-primary underline-offset-4 hover:underline">
-          Sign in
+        <Link 
+          href="/auth/signin" 
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Back to sign in
         </Link>
       </div>
     </div>

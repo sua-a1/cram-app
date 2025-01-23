@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   
   try {
     const code = requestUrl.searchParams.get('code')
+    const next = requestUrl.searchParams.get('next')
     
     if (code) {
       const cookieStore = cookies()
@@ -41,8 +42,12 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=callback-failed`)
       }
 
+      // If this is a password reset flow, redirect to update password
+      if (next?.includes('update-password')) {
+        return NextResponse.redirect(`${requestUrl.origin}${next}`)
+      }
+
       const user = session.user
-      console.log('User from session:', user)
 
       // Get user's profile to check organization
       const { data: profile, error: profileError } = await supabase
@@ -51,11 +56,7 @@ export async function GET(request: Request) {
         .eq('user_id', user.id)
         .single()
 
-      console.log('Profile check result:', { profile, error: profileError })
-
       if (profileError?.code === 'PGRST116' || !profile) {
-        console.log('Profile not found, creating new profile for user:', user.id)
-
         // Create profile if it doesn't exist - matching schema exactly
         const profileData = {
           user_id: user.id,
@@ -67,8 +68,6 @@ export async function GET(request: Request) {
           updated_at: new Date().toISOString()
         }
 
-        console.log('Creating profile with data:', profileData)
-
         const { error: createError } = await supabase
           .from('profiles')
           .insert([profileData])
@@ -78,7 +77,6 @@ export async function GET(request: Request) {
           return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/signin?error=profile-creation-failed`)
         }
 
-        console.log('Created new profile')
         // Redirect to access page to join/create org
         return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/access`)
       } else if (profileError) {
@@ -88,11 +86,10 @@ export async function GET(request: Request) {
 
       // If user has no org_id, redirect to access page
       if (!profile?.org_id) {
-        console.log('No org_id, redirecting to access')
         return NextResponse.redirect(`${requestUrl.origin}/org/org-auth/access`)
       }
 
-      // Redirect to the appropriate dashboard based on role
+      // For normal sign in flow, redirect to the appropriate dashboard based on role
       const dashboardPath = profile.role === 'admin'
         ? `/org/${profile.org_id}/admin`
         : `/org/${profile.org_id}/employee`

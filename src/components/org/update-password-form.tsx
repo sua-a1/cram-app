@@ -16,14 +16,18 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { updatePassword } from '@/lib/server/auth-logic'
+import { updatePasswordAction } from '@/app/org/(routes)/org-auth/update-password/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const updatePasswordSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
-    .max(100, 'Password must be less than 100 characters'),
+    .max(72, 'Password must be less than 72 characters')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/,
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
@@ -51,10 +55,10 @@ export function OrgUpdatePasswordForm() {
     try {
       const formData = new FormData()
       formData.append('password', data.password)
+      
+      const result = await updatePasswordAction(formData)
 
-      const result = await updatePassword({ password: data.password })
-
-      if (result?.error) {
+      if (result.error) {
         toast({
           variant: 'destructive',
           title: 'Error',
@@ -64,13 +68,15 @@ export function OrgUpdatePasswordForm() {
       }
 
       toast({
-        title: 'Password updated',
-        description: 'Your password has been updated successfully.',
+        title: 'Success',
+        description: 'Your password has been updated.',
       })
-
-      router.push('/org/signin')
+      
+      // Redirect to sign in page after a short delay
+      setTimeout(() => {
+        router.push('/org/org-auth/signin')
+      }, 2000)
     } catch (error) {
-      console.error('Error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -82,7 +88,7 @@ export function OrgUpdatePasswordForm() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
@@ -93,7 +99,6 @@ export function OrgUpdatePasswordForm() {
                 <FormLabel>New Password</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="••••••••"
                     type="password"
                     autoComplete="new-password"
                     disabled={isLoading}
@@ -104,6 +109,7 @@ export function OrgUpdatePasswordForm() {
               </FormItem>
             )}
           />
+          
           <FormField
             control={form.control}
             name="confirmPassword"
@@ -112,7 +118,6 @@ export function OrgUpdatePasswordForm() {
                 <FormLabel>Confirm Password</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="••••••••"
                     type="password"
                     autoComplete="new-password"
                     disabled={isLoading}
@@ -123,11 +128,12 @@ export function OrgUpdatePasswordForm() {
               </FormItem>
             )}
           />
+          
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Update password
+            Update Password
           </Button>
         </form>
       </Form>

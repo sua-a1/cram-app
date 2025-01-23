@@ -84,11 +84,11 @@
 - [x] Add success notifications
 
 ### Password Reset Flow
-- [ ] Update password reset request form
-- [ ] Update password reset confirmation
-- [ ] Add proper error handling
-- [ ] Add success notifications
-- [ ] Add email templates
+- [x] Update password reset request form
+- [x] Update password reset confirmation
+- [x] Add proper error handling
+- [x] Add success notifications
+- [x] Add email templates
 
 ### Shared Components
 - [x] Create LoadingButton component
@@ -188,4 +188,7 @@
 - Fixed cookie handling in auth flows
 - Added proper loading and error states to forms
 - Implemented proper session management with getUser() instead of getSession()
-- Added success notifications for auth actions 
+- Added success notifications for auth actions
+- Fixed password reset flow and email templates
+- Updated callback route to handle password reset redirects
+- Added proper middleware access for update-password routes 

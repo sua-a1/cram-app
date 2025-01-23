@@ -1,10 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useForm, type ControllerRenderProps } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -17,21 +16,22 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { updatePassword } from '@/app/(auth)/actions'
+import { updatePasswordAction } from '@/app/(auth)/update-password/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const updatePasswordSchema = z.object({
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
+    .max(72, 'Password must be less than 72 characters')
     .regex(
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).*$/,
       'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
   confirmPassword: z.string(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
-  path: ["confirmPassword"],
+  path: ['confirmPassword'],
 })
 
 type UpdatePasswordValues = z.infer<typeof updatePasswordSchema>
@@ -39,11 +39,7 @@ type UpdatePasswordValues = z.infer<typeof updatePasswordSchema>
 export function UpdatePasswordForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
-
-  // Get the code from URL
-  const code = searchParams.get('code')
 
   const form = useForm<UpdatePasswordValues>({
     resolver: zodResolver(updatePasswordSchema),
@@ -54,22 +50,13 @@ export function UpdatePasswordForm() {
   })
 
   async function onSubmit(data: UpdatePasswordValues) {
-    if (!code) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Missing reset code. Please use the reset link from your email.',
-      })
-      return
-    }
-
     setIsLoading(true)
 
     try {
-      const result = await updatePassword({ 
-        password: data.password,
-        code
-      })
+      const formData = new FormData()
+      formData.append('password', data.password)
+      
+      const result = await updatePasswordAction(formData)
 
       if (result.error) {
         toast({
@@ -80,35 +67,39 @@ export function UpdatePasswordForm() {
         return
       }
 
-      setIsLoading(false)
       toast({
-        title: 'Password updated successfully',
+        title: 'Success',
+        description: 'Your password has been updated.',
       })
-      router.push('/auth/signin')
+      
+      // Redirect to sign in page after a short delay
+      setTimeout(() => {
+        router.push('/auth/signin')
+      }, 2000)
     } catch (error) {
       toast({
         variant: 'destructive',
         title: 'Error',
         description: 'Something went wrong. Please try again.',
       })
+    } finally {
+      setIsLoading(false)
     }
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto flex w-full flex-col justify-center space-y-6 sm:w-[350px]">
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
           <FormField
             control={form.control}
             name="password"
-            render={({ field }: { field: ControllerRenderProps<UpdatePasswordValues, "password"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>New Password</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="••••••••"
                     type="password"
-                    autoCapitalize="none"
                     autoComplete="new-password"
                     disabled={isLoading}
                     {...field}
@@ -118,17 +109,16 @@ export function UpdatePasswordForm() {
               </FormItem>
             )}
           />
+          
           <FormField
             control={form.control}
             name="confirmPassword"
-            render={({ field }: { field: ControllerRenderProps<UpdatePasswordValues, "confirmPassword"> }) => (
+            render={({ field }) => (
               <FormItem>
                 <FormLabel>Confirm Password</FormLabel>
                 <FormControl>
                   <Input
-                    placeholder="••••••••"
                     type="password"
-                    autoCapitalize="none"
                     autoComplete="new-password"
                     disabled={isLoading}
                     {...field}
@@ -138,20 +128,15 @@ export function UpdatePasswordForm() {
               </FormItem>
             )}
           />
+          
           <Button type="submit" className="w-full" disabled={isLoading}>
             {isLoading && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
-            Update password
+            Update Password
           </Button>
         </form>
       </Form>
-      <div className="text-center text-sm">
-        Remember your password?{' '}
-        <Link href="/auth/signin" className="text-primary underline-offset-4 hover:underline">
-          Sign in
-        </Link>
-      </div>
     </div>
   )
 } 

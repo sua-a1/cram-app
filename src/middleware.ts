@@ -11,12 +11,14 @@ const publicRoutes = new Set([
   '/auth/signup',
   '/auth/callback',
   '/auth/reset-password',
+  '/auth/update-password',
   '/auth/verify',
   '/org/org-auth/signin',
   '/org/org-auth/signup',
   '/org/org-auth/callback',
   '/org/org-auth/access',
   '/org/org-auth/reset-password',
+  '/org/org-auth/update-password',
   '/org/org-auth/verify'
 ])
 
@@ -89,7 +91,7 @@ export async function middleware(request: NextRequest) {
     const { data: { session }, error } = await supabase.auth.getSession()
 
     // If no session, redirect to sign in
-  if (!session) {
+    if (!session) {
       const redirectUrl = new URL('/auth/signin', request.url)
       redirectUrl.searchParams.set('next', path)
       return NextResponse.redirect(redirectUrl)
@@ -103,12 +105,12 @@ export async function middleware(request: NextRequest) {
     if (protectedRoute) {
       const [_, allowedRoles] = protectedRoute
 
-  // Get user profile for role check
+      // Get user profile for role check
       const { data: profile, error: profileError } = await supabase
-    .from('profiles')
+        .from('profiles')
         .select('role')
         .eq('user_id', session.user.id)
-    .single()
+        .single()
 
       if (profileError || !profile || !allowedRoles.includes(profile.role)) {
         // If user doesn't have required role, redirect to unauthorized

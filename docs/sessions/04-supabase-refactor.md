@@ -71,13 +71,22 @@
    - Added proper SSR implementation
    - Maintained org-specific logic (org_id, roles)
    - Added proper error handling
+   - Fixed password reset flow redirection
+   - Added proper next parameter handling
 
-3. Type Safety Improvements
+3. Password Reset Flow Fixes:
+   - Updated reset password email template
+   - Fixed callback route to handle password reset redirects
+   - Added proper middleware access for update-password routes
+   - Ensured correct URL redirection after password reset
+   - Maintained separate flows for customer and org users
+
+4. Type Safety Improvements
    - Updated Auth Types (`src/types/auth.ts`)
    - Updated Database Types (`src/types/database.types.ts`)
    - Created Central Type Exports (`src/types/index.ts`)
 
-4. Build System Improvements
+5. Build System Improvements
    - Updated PostCSS configuration for proper CSS processing
    - Fixed dependency versions for compatibility
    - Streamlined Next.js configuration

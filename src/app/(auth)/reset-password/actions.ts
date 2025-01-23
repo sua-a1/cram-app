@@ -1,14 +1,32 @@
 'use server'
 
 import { z } from 'zod'
-import { resetPassword } from '@/lib/server/auth-logic'
-import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
+import { createClient } from '@/lib/supabase/server'
+import { createHash, randomBytes } from 'crypto'
 
 const resetPasswordSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email('Please enter a valid email address'),
 })
 
-export async function resetPasswordAction(formData: FormData) {
+export type ResetPasswordResponse = {
+  error?: string
+  success?: string
+}
+
+// Generate PKCE verifier
+function generatePKCEVerifier(): string {
+  return randomBytes(32).toString('base64url')
+}
+
+// Generate PKCE challenge
+function generatePKCEChallenge(verifier: string): string {
+  return createHash('sha256')
+    .update(verifier)
+    .digest('base64url')
+}
+
+export async function resetPasswordAction(formData: FormData): Promise<ResetPasswordResponse> {
   const validatedFields = resetPasswordSchema.safeParse({
     email: formData.get('email'),
   })
@@ -16,23 +34,43 @@ export async function resetPasswordAction(formData: FormData) {
   if (!validatedFields.success) {
     return {
       error: 'Invalid email address.',
-      issues: validatedFields.error.issues,
     }
   }
 
   const { email } = validatedFields.data
+  const cookieStore = cookies()
+  const supabase = createClient()
 
   try {
-    const result = await resetPassword({ email })
+    // Generate PKCE verifier and challenge
+    const pkceVerifier = generatePKCEVerifier()
+    const pkceChallenge = generatePKCEChallenge(pkceVerifier)
 
-    if (result.error) {
-      return { error: result.error }
+    // Store the verifier in a secure cookie
+    cookieStore.set('pkce_verifier', pkceVerifier, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 10, // 10 minutes
+    })
+
+    // Get the site URL from environment or default to localhost
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${siteUrl}/auth/callback?next=/auth/update-password`,
+    })
+
+    if (error) {
+      return { error: error.message }
     }
 
     return {
       success: 'If an account exists with this email, you will receive a password reset link.',
     }
   } catch (error) {
+    console.error('Password reset error:', error)
     return {
       error: 'Something went wrong. Please try again.',
     }

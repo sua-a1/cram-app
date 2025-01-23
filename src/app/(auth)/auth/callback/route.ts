@@ -10,6 +10,7 @@ export async function GET(request: Request) {
   
   try {
     const code = requestUrl.searchParams.get('code')
+    const next = requestUrl.searchParams.get('next') || '/dashboard'
     
     if (code) {
       const cookieStore = cookies()
@@ -35,6 +36,9 @@ export async function GET(request: Request) {
         }
       )
 
+      // Get stored PKCE verifier if it exists
+      const pkceVerifier = cookieStore.get('pkce_verifier')?.value
+
       // Exchange code for session
       const { data: { session }, error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
       
@@ -43,21 +47,26 @@ export async function GET(request: Request) {
         return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=callback-failed`)
       }
 
-      const user = session.user
-      console.log('User from session:', user)
+      // Clear PKCE verifier if it exists
+      if (pkceVerifier) {
+        cookieStore.delete('pkce_verifier')
+      }
 
-      // Get user's profile to check if it exists
+      const user = session.user
+
+      // If this is a password reset flow, redirect to update password
+      if (next.includes('update-password')) {
+        return NextResponse.redirect(`${requestUrl.origin}${next}`)
+      }
+
+      // For normal sign in flow, check/create profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('user_id', user.id)
         .single()
 
-      console.log('Profile check result:', { profile, error: profileError })
-
       if (profileError?.code === 'PGRST116' || !profile) {
-        console.log('Profile not found, creating new customer profile for user:', user.id)
-
         // Create profile if it doesn't exist
         const profileData = {
           user_id: user.id,
@@ -68,8 +77,6 @@ export async function GET(request: Request) {
           updated_at: new Date().toISOString()
         }
 
-        console.log('Creating customer profile with data:', profileData)
-
         const { error: createError } = await supabase
           .from('profiles')
           .insert([profileData])
@@ -78,15 +85,13 @@ export async function GET(request: Request) {
           console.error('Error creating customer profile:', createError)
           return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=profile-creation-failed`)
         }
-
-        console.log('Created new customer profile')
       } else if (profileError) {
         console.error('Unexpected customer profile error:', profileError)
         return NextResponse.redirect(`${requestUrl.origin}/auth/signin?error=profile-error`)
       }
 
-      // Redirect to dashboard after successful auth and profile creation
-      return NextResponse.redirect(`${requestUrl.origin}/dashboard`)
+      // Redirect to the next page or dashboard
+      return NextResponse.redirect(`${requestUrl.origin}${next}`)
     }
 
     // If no code, redirect to signin

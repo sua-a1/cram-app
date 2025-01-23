@@ -32,11 +32,25 @@ export function createClient() {
           return cookieStore.get(name)?.value
         },
         set(name: string, value: string, options: CookieOptions) {
-          cookieStore.set({ name, value, ...options })
+          try {
+            cookieStore.set(name, value, options)
+          } catch (error) {
+            // Handle cookie setting error in middleware
+          }
         },
         remove(name: string, options: CookieOptions) {
-          cookieStore.delete(name)
+          try {
+            cookieStore.delete({ name, ...options })
+          } catch (error) {
+            // Handle cookie deletion error in middleware
+          }
         },
+      },
+      auth: {
+        flowType: 'pkce',
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true,
       },
     }
   )
