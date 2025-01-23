@@ -18,9 +18,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className={inter.className} suppressHydrationWarning>
+      <body className={`${inter.className} min-h-screen bg-background antialiased`} suppressHydrationWarning>
         <AuthProvider>
-          {children}
+          <main className="relative flex min-h-screen flex-col">
+            {children}
+          </main>
           <Toaster />
         </AuthProvider>
       </body>
