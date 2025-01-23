@@ -45,6 +45,13 @@
    - Fixed CSS module resolution
    - Streamlined Next.js config
 
+7. Improved Auth Provider and Sign-Out Flow
+   - Updated `SupabaseAuthProvider` to handle role-based redirects
+   - Fixed sign-out functionality with proper cleanup
+   - Implemented proper auth state management
+   - Added proper redirection for customer and org users
+   - Fixed session persistence issues
+
 ### Current Issues
 1. Cookie Handling Types:
    - Need to fix cookie methods typing in Supabase clients
@@ -92,6 +99,19 @@
    - Streamlined Next.js configuration
    - Resolved module resolution issues
 
+6. Auth Provider and Sign-Out Improvements:
+   - Implemented proper auth state management in `SupabaseAuthProvider`
+   - Added role-based redirection after sign-in:
+     - Customers -> '/customer'
+     - Org users with org -> '/org/dashboard'
+     - Org users without org -> '/org/org-auth/access'
+   - Enhanced sign-out flow:
+     - Clear Supabase session
+     - Clear local and session storage
+     - Hard redirect to appropriate sign-in page
+   - Fixed session persistence issues
+   - Improved error handling and user feedback
+
 ## 4. Notes & Decisions
 
 ### Architecture Decisions
@@ -115,6 +135,12 @@
    - Standard PostCSS setup with Tailwind
    - Fixed dependency versions for stability
 
+5. Auth State Management:
+   - Centralized auth state in `SupabaseAuthProvider`
+   - Role-based routing using profile data
+   - Clean session cleanup on sign-out
+   - Hard redirects for clean state reset
+
 ### Next Steps
 1. Fix Cookie Handling:
    - Update cookie storage adapter
@@ -130,6 +156,11 @@
    - Add proper error types
    - Implement error boundaries
    - Add toast notifications
+
+4. Testing:
+   - Add tests for auth flows
+   - Test session persistence
+   - Test role-based routing
 
 ## 5. References
 - [Supabase PKCE Flow](https://supabase.com/docs/guides/auth/sessions/pkce-flow)

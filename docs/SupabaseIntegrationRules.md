@@ -1,4 +1,61 @@
-# Supabase Integration Rules (Concise)
+# Supabase Integration Rules
+
+## Authentication Flow
+
+1. **Client-Side Authentication**
+   - Use client-side auth for sign-in/sign-up (`signInWithPassword`, `signUp`)
+   - Let Supabase handle cookie management
+   - Don't manually redirect after auth - use auth state listener
+
+2. **Auth State Management**
+   - Use `SupabaseAuthProvider` for managing auth state
+   - Listen to auth events (`onAuthStateChange`) for navigation
+   - Check organization/role in auth state change handler
+   - Avoid checking auth state in individual pages
+
+3. **Protected Routes**
+   - Use middleware for protecting routes
+   - Refresh session in middleware for SSR
+   - Define public routes explicitly
+   - Handle role-based access in middleware
+
+4. **Auth Pages**
+   - Make auth forms client components
+   - Use auth provider for current user state
+   - Keep forms simple - let Supabase handle session
+   - Avoid server components for auth pages
+
+## Data Access Patterns
+
+1. **Server Components**
+   - Use `createServerSupabaseClient()` for data fetching
+   - Handle errors gracefully with proper typing
+   - Use RLS policies for security
+
+2. **Client Components**
+   - Use `createClient()` for real-time and mutations
+   - Handle optimistic updates when appropriate
+   - Use proper error handling and loading states
+
+## Best Practices
+
+1. **Session Management**
+   - Don't manually manage cookies
+   - Let Supabase handle session refresh
+   - Use middleware for session checks
+   - Avoid mixing client/server auth checks
+
+2. **Error Handling**
+   - Type your errors properly
+   - Show user-friendly error messages
+   - Log errors for debugging
+   - Handle edge cases (no session, expired token)
+
+3. **Security**
+   - Always use RLS policies
+   - Never expose sensitive data to client
+   - Validate data on server side
+   - Use proper role-based access control
 
 ---
 

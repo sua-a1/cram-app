@@ -17,7 +17,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { resetPasswordAction } from '@/app/(auth)/reset-password/actions'
+import { resetPasswordAction } from '@/app/(auth)/auth/reset-password/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const resetPasswordSchema = z.object({

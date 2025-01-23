@@ -17,6 +17,7 @@ import {
   type AuthUser,
   type AuthSession,
 } from '@/types/auth'
+import { headers } from 'next/headers'
 
 // Transform Supabase User to AuthUser
 async function transformUser(user: User | null, supabase: SupabaseClient<Database>): Promise<AuthUser | null> {
@@ -25,26 +26,38 @@ async function transformUser(user: User | null, supabase: SupabaseClient<Databas
   // Get profile data
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, role')
+    .select('display_name, role, org_id')
     .eq('user_id', user.id)
     .single()
 
-  return {
-    id: user.id,
-    email: user.email!,
+  const authUser: AuthUser = {
+    ...user, // This includes id, email, app_metadata, user_metadata, aud, etc.
     role: (profile?.role || user.user_metadata.role || 'customer') as UserRole,
+    org_id: profile?.org_id || undefined,
     display_name: profile?.display_name || user.email!.split('@')[0],
-    created_at: user.created_at,
-    updated_at: user.updated_at || user.created_at,
+    department: undefined,
+    position: undefined,
+    metadata: {
+      role: profile?.role || user.user_metadata.role || 'customer',
+      org_id: profile?.org_id || undefined,
+      display_name: profile?.display_name || user.email!.split('@')[0]
+    }
   }
+
+  return authUser
 }
 
 // Transform Supabase Session to AuthSession
 async function transformSession(session: Session | null, supabase: SupabaseClient<Database>): Promise<AuthSession | null> {
   if (!session) return null
+  
+  const transformedUser = await transformUser(session.user, supabase)
+  if (!transformedUser) return null
+
   return {
-    user: await transformUser(session.user, supabase),
-    expires_at: session.expires_at!,
+    ...session,
+    user: transformedUser,
+    expires_at: session.expires_at!
   }
 }
 
@@ -203,9 +216,20 @@ export async function signIn({ email, password }: SignInCredentials): Promise<Au
       throw new Error('No user or session after sign in')
     }
 
-    return { 
-      user: await transformUser(user, supabase),
-      session: await transformSession(session, supabase)
+    const transformedUser = await transformUser(user, supabase)
+    if (!transformedUser) {
+      throw new Error('Failed to transform user data')
+    }
+
+    const transformedSession = await transformSession(session, supabase)
+    if (!transformedSession) {
+      throw new Error('Failed to transform session data')
+    }
+
+    return {
+      user: transformedUser,
+      session: transformedSession,
+      error: null
     }
   } catch (error: any) {
     console.error('Sign in error:', error)
@@ -229,12 +253,52 @@ export async function signOut(): Promise<{ error?: string }> {
   }
 }
 
+// Add helper function to determine auth paths
+function getAuthPaths(user: User | null): { signIn: string; updatePassword: string } {
+  // Check user metadata for role
+  const role = user?.user_metadata?.role || 'customer'
+  
+  if (role === 'customer') {
+    return {
+      signIn: '/auth/signin',
+      updatePassword: '/auth/update-password'
+    }
+  }
+  
+  return {
+    signIn: '/org/org-auth/signin',
+    updatePassword: '/org/org-auth/update-password'
+  }
+}
+
 export async function resetPassword({ email }: ResetPasswordCredentials): Promise<{ error?: string }> {
   const supabase = await createClient()
+  const adminClient = await createAdminClient()
   
   try {
+    // Get user to determine correct path
+    const { data: profile, error: profileError } = await adminClient
+      .from('profiles')
+      .select('role')
+      .eq('email', email)
+      .single()
+    
+    // Create a minimal mock user object with the required properties
+    const mockUser: User = {
+      id: '',
+      app_metadata: {},
+      user_metadata: { role: profile?.role || 'customer' },
+      aud: 'authenticated',
+      created_at: '',
+      email: email,
+      role: profile?.role || 'customer',
+      updated_at: ''
+    }
+
+    const paths = getAuthPaths(mockUser)
+
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/update-password`,
+      redirectTo: `${process.env.NEXT_PUBLIC_APP_URL}${paths.updatePassword}`,
     })
     if (error) throw error
     return {}
@@ -337,11 +401,36 @@ export async function getUserRole(userId: string): Promise<UserRole | null> {
 }
 
 export async function requireAuth() {
-  const session = await getSession()
-  if (!session) {
-    redirect('/signin')
+  const supabase = await createClient()
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession()
+    if (error) throw error
+    
+    if (!session) {
+      // Create mock user based on current URL path
+      const path = headers().get('x-pathname') || ''
+      const isOrgPath = path.startsWith('/org/')
+      const mockUser: User = {
+        id: '',
+        app_metadata: {},
+        user_metadata: { role: isOrgPath ? 'employee' : 'customer' },
+        aud: 'authenticated',
+        created_at: '',
+        email: '',
+        role: isOrgPath ? 'employee' : 'customer',
+        updated_at: ''
+      }
+      
+      const { signIn } = getAuthPaths(mockUser)
+      redirect(signIn)
+    }
+    
+    return session
+  } catch (error) {
+    // Default to customer sign in if we can't determine the path
+    const { signIn } = getAuthPaths(null)
+    redirect(signIn)
   }
-  return session
 }
 
 export async function requireRole(allowedRoles: UserRole[]) {

@@ -20,7 +20,7 @@ if (!supabaseServiceKey) {
 }
 
 // Create a server client (for Server Components, Server Actions, Route Handlers)
-export function createClient() {
+export function createServerSupabaseClient() {
   const cookieStore = cookies()
   
   return createServerClient<Database>(
@@ -31,26 +31,6 @@ export function createClient() {
         get(name: string) {
           return cookieStore.get(name)?.value
         },
-        set(name: string, value: string, options: CookieOptions) {
-          try {
-            cookieStore.set(name, value, options)
-          } catch (error) {
-            // Handle cookie setting error in middleware
-          }
-        },
-        remove(name: string, options: CookieOptions) {
-          try {
-            cookieStore.delete({ name, ...options })
-          } catch (error) {
-            // Handle cookie deletion error in middleware
-          }
-        },
-      },
-      auth: {
-        flowType: 'pkce',
-        autoRefreshToken: true,
-        detectSessionInUrl: true,
-        persistSession: true,
       },
     }
   )

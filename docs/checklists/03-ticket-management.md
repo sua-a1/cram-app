@@ -40,7 +40,6 @@
 - [ ] Message System
   - [ ] Message creation
   - [ ] Internal notes
-  - [ ] File attachments
   - [ ] Rich text support
 
 - [ ] Team Management

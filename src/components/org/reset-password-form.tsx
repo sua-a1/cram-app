@@ -61,11 +61,15 @@ export function OrgResetPasswordForm() {
         description: result.success,
       })
       
+      // Reset form
+      form.reset()
+      
       // Redirect to sign in page after a short delay
       setTimeout(() => {
         router.push('/org/org-auth/signin')
       }, 2000)
     } catch (error) {
+      console.error('Reset password error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',

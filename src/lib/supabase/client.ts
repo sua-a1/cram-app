@@ -16,7 +16,13 @@ if (!supabaseAnonKey) {
 // Create a browser client for client components
 export function createClient() {
   return createBrowserClient<Database>(
-    supabaseUrl,
-    supabaseAnonKey
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      auth: {
+        flowType: 'pkce',
+        detectSessionInUrl: true,
+      },
+    }
   )
 } 

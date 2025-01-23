@@ -29,14 +29,25 @@ export default async function SignInPage() {
         </p>
       </div>
       <OrgSignInForm />
-      <p className="px-8 text-center text-sm text-muted-foreground">
-        <Link 
-          href="/org/org-auth/reset-password"
-          className="hover:text-brand underline underline-offset-4"
-        >
-          Forgot your password?
-        </Link>
-      </p>
+      <div className="px-8 text-center text-sm space-y-2">
+        <p className="text-muted-foreground">
+          <Link 
+            href="/org/org-auth/reset-password"
+            className="hover:text-brand underline underline-offset-4"
+          >
+            Forgot your password?
+          </Link>
+        </p>
+        <p className="text-muted-foreground">
+          Need an organization account?{' '}
+          <Link 
+            href="/org/org-auth/signup"
+            className="hover:text-brand underline underline-offset-4"
+          >
+            Sign up here
+          </Link>
+        </p>
+      </div>
     </div>
   )
 } 

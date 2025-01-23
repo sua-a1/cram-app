@@ -41,8 +41,9 @@ export async function resetPasswordAction(formData: FormData): Promise<ResetPass
     
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     
+    console.log('Attempting to send reset password email...')
     const { error } = await supabase.auth.resetPasswordForEmail(validatedEmail, {
-      redirectTo: `${siteUrl}/org/org-auth/callback?next=/org/org-auth/update-password`,
+      redirectTo: `${siteUrl}/auth/callback?next=/auth/update-password`,
     })
 
     if (error) {
@@ -50,6 +51,7 @@ export async function resetPasswordAction(formData: FormData): Promise<ResetPass
       return { error: error.message }
     }
 
+    console.log('Reset password email sent successfully')
     return { success: 'Check your email for the password reset link' }
   } catch (error) {
     console.error('Unexpected error in reset password:', error)

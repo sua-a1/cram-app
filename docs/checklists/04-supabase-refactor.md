@@ -116,8 +116,6 @@
 - [x] Implement proper session refresh
 - [x] Add session timeout handling
 - [x] Add concurrent session handling
-- [ ] Add session revocation
-- [ ] Add audit logging
 
 ## Testing & Verification
 

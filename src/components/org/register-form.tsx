@@ -1,11 +1,11 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
 import { Building2, Loader2 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +15,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
@@ -30,10 +31,9 @@ type RegisterValues = z.infer<typeof registerSchema>
 
 export function OrgRegisterForm() {
   const [isLoading, setIsLoading] = useState(false)
-  const router = useRouter()
   const { toast } = useToast()
+  const router = useRouter()
 
-  // Initialize form
   const form = useForm<RegisterValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
@@ -52,26 +52,27 @@ export function OrgRegisterForm() {
 
       const result = await registerAction(formData)
 
-      if (result?.error) {
+      if (result.error) {
         toast({
-          title: 'Registration failed',
-          description: result.error.message || 'Please try again later.',
           variant: 'destructive',
+          title: 'Error',
+          description: result.error
         })
         return
       }
 
       toast({
-        title: 'Organization registered',
-        description: 'Your organization has been registered successfully.',
+        title: 'Success',
+        description: 'Your organization has been created'
       })
 
-      // Note: No need to redirect here as the server action handles it
+      router.push('/org/dashboard')
     } catch (error) {
+      console.error('Registration error:', error)
       toast({
-        title: 'Something went wrong',
-        description: 'Please try again later.',
         variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Failed to create organization'
       })
     } finally {
       setIsLoading(false)
@@ -88,8 +89,15 @@ export function OrgRegisterForm() {
             <FormItem>
               <FormLabel>Organization Name</FormLabel>
               <FormControl>
-                <Input placeholder="Acme Inc." {...field} />
+                <Input
+                  placeholder="Acme Inc."
+                  {...field}
+                  disabled={isLoading}
+                />
               </FormControl>
+              <FormDescription>
+                This is your organization&apos;s visible name.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
@@ -102,23 +110,30 @@ export function OrgRegisterForm() {
             <FormItem>
               <FormLabel>Domain (Optional)</FormLabel>
               <FormControl>
-                <Input placeholder="acme.com" {...field} />
+                <Input
+                  placeholder="acme.com"
+                  {...field}
+                  disabled={isLoading}
+                />
               </FormControl>
+              <FormDescription>
+                Your organization&apos;s domain name.
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        <Button disabled={isLoading} type="submit" className="w-full">
+        <Button type="submit" className="w-full" disabled={isLoading}>
           {isLoading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Registering...
+              Creating...
             </>
           ) : (
             <>
               <Building2 className="mr-2 h-4 w-4" />
-              Register Organization
+              Create Organization
             </>
           )}
         </Button>

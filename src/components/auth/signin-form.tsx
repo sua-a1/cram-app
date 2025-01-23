@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
@@ -31,11 +31,7 @@ type SignInValues = z.infer<typeof signInSchema>
 export function SignInForm() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const searchParams = useSearchParams()
   const { toast } = useToast()
-
-  // Get redirect URL from query params
-  const redirectUrl = searchParams.get('next') || '/customer'
 
   const form = useForm<SignInValues>({
     resolver: zodResolver(signInSchema),
@@ -65,9 +61,8 @@ export function SignInForm() {
         description: 'Welcome back!',
       })
 
-      // Add a small delay to allow the toast to show
-      await new Promise(resolve => setTimeout(resolve, 500))
-      router.push(redirectUrl)
+      // Add a small delay to ensure auth state change is processed
+      await new Promise(resolve => setTimeout(resolve, 1000))
       router.refresh()
     } catch (error) {
       console.error('Sign in error:', error)
@@ -145,10 +140,7 @@ export function SignInForm() {
       <div className="text-center text-sm">
         Don't have an account?{' '}
         <Link 
-          href={{
-            pathname: '/auth/signup',
-            query: redirectUrl !== '/customer' ? { redirect: redirectUrl } : undefined
-          }}
+          href="/auth/signup"
           className="text-primary underline-offset-4 hover:underline"
         >
           Sign up

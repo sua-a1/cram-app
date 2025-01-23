@@ -16,7 +16,7 @@ import {
   FormMessage,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
-import { updatePasswordAction } from '@/app/(auth)/update-password/actions'
+import { updatePasswordAction } from '@/app/(auth)/auth/update-password/actions'
 import { useToast } from '@/hooks/use-toast'
 
 const updatePasswordSchema = z.object({

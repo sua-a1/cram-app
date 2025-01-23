@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from "@/lib/context/auth-context";
+import { SupabaseAuthProvider } from "@/providers/supabase-auth-provider";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -19,12 +19,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.className} min-h-screen bg-background antialiased`} suppressHydrationWarning>
-        <AuthProvider>
+        <SupabaseAuthProvider>
           <main className="relative flex min-h-screen flex-col">
             {children}
           </main>
           <Toaster />
-        </AuthProvider>
+        </SupabaseAuthProvider>
       </body>
     </html>
   );

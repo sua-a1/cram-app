@@ -34,7 +34,6 @@ export function OrgSignInForm() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
-  // Get redirect URL from query params (using 'next' instead of 'redirect')
   const redirectUrl = searchParams.get('next') || '/org/dashboard'
 
   const form = useForm<SignInValues>({
@@ -46,58 +45,26 @@ export function OrgSignInForm() {
   })
 
   async function onSubmit(data: SignInValues) {
+    if (isLoading) return
     setIsLoading(true)
 
-    const supabase = createClient()
-
     try {
-      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
+      const supabase = createClient()
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       })
 
-      if (signInError) {
-        throw signInError
-      }
-
-      if (!user) {
-        throw new Error('No user returned after sign in')
-      }
-
-      // Check if user belongs to an organization
-      const { data: profile, error: profileError } = await supabase
-        .from('profiles')
-        .select('user_id, org_id, role, display_name')
-        .eq('user_id', user.id)
-        .single()
-
-      // If there's a 404 or auth error, the user needs to set up organization access
-      if (profileError?.code === '404' || profileError?.code === '401') {
-        window.location.href = '/org/org-auth/access'
-        return
-      }
-
-      // For other profile errors, throw them
-      if (profileError) {
-        throw profileError
-      }
-
-      // If no org_id or not an employee/admin, redirect to access page
-      if (!profile?.org_id || (profile.role !== 'employee' && profile.role !== 'admin')) {
-        window.location.href = '/org/org-auth/access'
-        return
-      }
+      if (signInError) throw signInError
 
       toast({
         title: 'Success',
         description: 'Welcome back!',
       })
-
-      // Add a small delay to allow the toast to show
-      await new Promise(resolve => setTimeout(resolve, 500))
       
-      // Force a hard navigation to clear any stale state
-      window.location.href = redirectUrl
+      // Important: Set loading to false after successful sign-in
+      // This allows the auth provider to handle navigation
+      setIsLoading(false)
     } catch (error) {
       console.error('Sign in error:', error)
       toast({
@@ -105,11 +72,6 @@ export function OrgSignInForm() {
         title: 'Error',
         description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
-      // If it's an auth error, sign out
-      if (error instanceof Error && error.message.includes('auth')) {
-        await supabase.auth.signOut()
-      }
-    } finally {
       setIsLoading(false)
     }
   }
@@ -175,15 +137,6 @@ export function OrgSignInForm() {
           </Button>
         </form>
       </Form>
-      <div className="text-center text-sm">
-        Need organization access?{' '}
-        <Link 
-          href="/org/org-auth/register"
-          className="text-primary underline-offset-4 hover:underline"
-        >
-          Register here
-        </Link>
-      </div>
     </div>
   )
 } 
