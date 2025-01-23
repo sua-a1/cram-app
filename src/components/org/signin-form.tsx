@@ -1,7 +1,8 @@
 'use client'
 
-import * as React from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import * as z from 'zod'
@@ -14,70 +15,100 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { signInAction } from '@/app/org/(routes)/org-auth/signin/actions'
+import { createClient } from '@/lib/supabase/client'
+import type { SignInCredentials } from '@/types/auth'
 
-const formSchema = z.object({
+const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
-})
+}) satisfies z.ZodType<SignInCredentials>
 
-type SignInValues = z.infer<typeof formSchema>
+type SignInValues = z.infer<typeof signInSchema>
 
 export function OrgSignInForm() {
-  const { toast } = useToast()
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
   const searchParams = useSearchParams()
-  const [isLoading, setIsLoading] = React.useState(false)
+  const { toast } = useToast()
 
-  // Get redirect URL from query params
-  const redirectUrl = searchParams.get('redirect')
+  // Get redirect URL from query params (using 'next' instead of 'redirect')
+  const redirectUrl = searchParams.get('next') || '/org/dashboard'
 
   const form = useForm<SignInValues>({
-    resolver: zodResolver(formSchema),
+    resolver: zodResolver(signInSchema),
     defaultValues: {
       email: '',
       password: '',
     },
   })
 
-  async function onSubmit(values: SignInValues) {
+  async function onSubmit(data: SignInValues) {
     setIsLoading(true)
-    
+
+    const supabase = createClient()
+
     try {
-      const formData = new FormData()
-      formData.append('email', values.email)
-      formData.append('password', values.password)
-      if (redirectUrl) {
-        formData.append('redirect', redirectUrl)
+      const { data: { user }, error: signInError } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      })
+
+      if (signInError) {
+        throw signInError
       }
 
-      const result = await signInAction(formData)
-      
-      if (result?.error) {
-        toast({
-          title: 'Error',
-          description: result.error,
-          variant: 'destructive',
-        })
+      if (!user) {
+        throw new Error('No user returned after sign in')
+      }
+
+      // Check if user belongs to an organization
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('user_id, org_id, role, display_name')
+        .eq('user_id', user.id)
+        .single()
+
+      // If there's a 404 or auth error, the user needs to set up organization access
+      if (profileError?.code === '404' || profileError?.code === '401') {
+        window.location.href = '/org/org-auth/access'
+        return
+      }
+
+      // For other profile errors, throw them
+      if (profileError) {
+        throw profileError
+      }
+
+      // If no org_id or not an employee/admin, redirect to access page
+      if (!profile?.org_id || (profile.role !== 'employee' && profile.role !== 'admin')) {
+        window.location.href = '/org/org-auth/access'
         return
       }
 
       toast({
         title: 'Success',
-        description: 'Signed in successfully.',
+        description: 'Welcome back!',
       })
 
-      // The server action will handle the redirect
+      // Add a small delay to allow the toast to show
+      await new Promise(resolve => setTimeout(resolve, 500))
+      
+      // Force a hard navigation to clear any stale state
+      window.location.href = redirectUrl
     } catch (error) {
       console.error('Sign in error:', error)
       toast({
-        title: 'Error',
-        description: 'An unexpected error occurred. Please try again.',
         variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
+      // If it's an auth error, sign out
+      if (error instanceof Error && error.message.includes('auth')) {
+        await supabase.auth.signOut()
+      }
     } finally {
       setIsLoading(false)
     }
@@ -94,19 +125,16 @@ export function OrgSignInForm() {
               <FormItem>
                 <FormLabel>Work Email</FormLabel>
                 <FormControl>
-                  <Input 
-                    placeholder="you@organization.com" 
+                  <Input
+                    placeholder="you@organization.com"
                     type="email"
                     autoCapitalize="none"
                     autoComplete="email"
                     autoCorrect="off"
                     disabled={isLoading}
-                    {...field} 
+                    {...field}
                   />
                 </FormControl>
-                <FormDescription>
-                  Enter your organization email address
-                </FormDescription>
                 <FormMessage />
               </FormItem>
             )}
@@ -116,15 +144,23 @@ export function OrgSignInForm() {
             name="password"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Password</FormLabel>
+                <div className="flex items-center justify-between">
+                  <FormLabel>Password</FormLabel>
+                  <Link
+                    href="/org/org-auth/reset-password"
+                    className="text-sm text-muted-foreground hover:text-primary"
+                  >
+                    Forgot password?
+                  </Link>
+                </div>
                 <FormControl>
-                  <Input 
-                    type="password"
+                  <Input
                     placeholder="••••••••"
+                    type="password"
                     autoCapitalize="none"
                     autoComplete="current-password"
                     disabled={isLoading}
-                    {...field} 
+                    {...field}
                   />
                 </FormControl>
                 <FormMessage />
@@ -132,17 +168,22 @@ export function OrgSignInForm() {
             )}
           />
           <Button type="submit" className="w-full" disabled={isLoading}>
-            {isLoading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Signing in...
-              </>
-            ) : (
-              'Sign In'
+            {isLoading && (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
+            Sign in
           </Button>
         </form>
       </Form>
+      <div className="text-center text-sm">
+        Need organization access?{' '}
+        <Link 
+          href="/org/org-auth/register"
+          className="text-primary underline-offset-4 hover:underline"
+        >
+          Register here
+        </Link>
+      </div>
     </div>
   )
 } 

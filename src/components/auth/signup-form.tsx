@@ -1,5 +1,6 @@
 'use client'
 
+import { signUpAction } from '@/app/(auth)/auth/signup/actions'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -58,26 +59,22 @@ export function SignUpForm() {
     setIsLoading(true)
 
     try {
+      console.log('Submitting signup form...')
       const formData = new FormData()
       formData.append('email', data.email)
       formData.append('password', data.password)
       formData.append('display_name', data.display_name)
       formData.append('role', data.role)
 
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        body: formData,
-      })
+      const result = await signUpAction(formData)
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Something went wrong')
+      if (result.error) {
+        throw new Error(result.error)
       }
 
       toast({
-        title: 'Check your email',
-        description: 'We sent you a verification link.',
+        title: 'Success',
+        description: result.message || 'Please check your email for verification.',
       })
 
       // Redirect to sign in page with the redirect URL

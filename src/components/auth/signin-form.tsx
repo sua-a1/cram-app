@@ -18,6 +18,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
+import { createClient } from '@/lib/supabase/client'
 import type { SignInCredentials } from '@/types/auth'
 
 const signInSchema = z.object({
@@ -48,19 +49,15 @@ export function SignInForm() {
     setIsLoading(true)
 
     try {
-      const formData = new FormData()
-      formData.append('email', data.email)
-      formData.append('password', data.password)
+      const supabase = createClient()
 
-      const response = await fetch('/api/auth/signin', {
-        method: 'POST',
-        body: formData,
+      const { error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
       })
 
-      const result = await response.json()
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Something went wrong')
+      if (error) {
+        throw error
       }
 
       toast({
@@ -71,6 +68,7 @@ export function SignInForm() {
       // Add a small delay to allow the toast to show
       await new Promise(resolve => setTimeout(resolve, 500))
       router.push(redirectUrl)
+      router.refresh()
     } catch (error) {
       console.error('Sign in error:', error)
       toast({

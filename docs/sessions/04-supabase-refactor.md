@@ -39,10 +39,18 @@
    - Created central type exports
    - Added utility types and type guards
 
+6. Fixed Build and CSS Processing
+   - Updated PostCSS configuration
+   - Installed correct versions of dependencies
+   - Fixed CSS module resolution
+   - Streamlined Next.js config
+
 ### Current Issues
 1. Cookie Handling Types:
    - Need to fix cookie methods typing in Supabase clients
    - Update cookie storage adapter types
+   - Fixed sign-in route cookie handling and error responses
+   - Added proper JSON responses for all auth flows
 
 2. Component Updates Needed:
    - Auth components need updating for new types
@@ -69,6 +77,12 @@
    - Updated Database Types (`src/types/database.types.ts`)
    - Created Central Type Exports (`src/types/index.ts`)
 
+4. Build System Improvements
+   - Updated PostCSS configuration for proper CSS processing
+   - Fixed dependency versions for compatibility
+   - Streamlined Next.js configuration
+   - Resolved module resolution issues
+
 ## 4. Notes & Decisions
 
 ### Architecture Decisions
@@ -86,6 +100,11 @@
    - Strict null checks
    - Proper optional types
    - Type guards for runtime checks
+
+4. Build Configuration:
+   - Minimal Next.js config to leverage built-in features
+   - Standard PostCSS setup with Tailwind
+   - Fixed dependency versions for stability
 
 ### Next Steps
 1. Fix Cookie Handling:

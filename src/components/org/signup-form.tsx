@@ -1,5 +1,6 @@
 'use client'
 
+import { signUpAction } from '@/app/org/(routes)/org-auth/signup/actions'
 import { useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
@@ -26,14 +27,9 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { useToast } from '@/hooks/use-toast'
-import { signUpAction } from '@/app/org/(routes)/org-auth/signup/actions'
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
-  displayName: z.string()
-    .min(2, 'Display name must be at least 2 characters')
-    .max(50, 'Display name must be less than 50 characters')
-    .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Display name can only contain letters, numbers, spaces, hyphens, and underscores'),
   password: z
     .string()
     .min(8, 'Password must be at least 8 characters')
@@ -41,6 +37,10 @@ const signUpSchema = z.object({
       /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
       'Password must contain at least one uppercase letter, one lowercase letter, and one number'
     ),
+  displayName: z.string()
+    .min(2, 'Display name must be at least 2 characters')
+    .max(50, 'Display name must be less than 50 characters')
+    .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Display name can only contain letters, numbers, spaces, hyphens, and underscores'),
   confirmPassword: z.string(),
   role: z.enum(['admin', 'employee'], {
     required_error: 'Please select a role',
@@ -76,37 +76,45 @@ export function OrgSignUpForm() {
     setIsLoading(true)
 
     try {
+      console.log('Submitting org signup form...', {
+        email: data.email,
+        displayName: data.displayName,
+        role: data.role,
+        hasPassword: !!data.password
+      })
+
+      // Create form data
       const formData = new FormData()
       formData.append('email', data.email)
       formData.append('password', data.password)
-      formData.append('role', data.role)
       formData.append('displayName', data.displayName)
-      
-      const result = await signUpAction(formData)
+      formData.append('role', data.role)
 
-      if (result?.error) {
-        console.error('Sign up error:', result.error)
-        toast({
-          variant: 'destructive',
-          title: 'Error',
-          description: typeof result.error === 'string' ? result.error : 'Failed to sign up',
-        })
-        return
+      // Call server action with proper binding
+      const result = await signUpAction(formData)
+      console.log('Server action result:', result)
+
+      if (!result) {
+        throw new Error('No response from server')
+      }
+
+      if ('error' in result && result.error) {
+        throw new Error(result.error)
       }
 
       toast({
         title: 'Success',
-        description: result.message || 'Account created successfully.',
+        description: 'success' in result ? result.message : 'Please check your email for verification.',
       })
 
       // Redirect to access page after successful signup
       router.push('/org/org-auth/access')
     } catch (error) {
-      console.error('Unexpected error:', error)
+      console.error('Sign up error:', error)
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Something went wrong. Please try again.',
+        description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
     } finally {
       setIsLoading(false)

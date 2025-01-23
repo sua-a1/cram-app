@@ -44,31 +44,35 @@ export function OrgJoinForm() {
     setIsLoading(true)
 
     try {
+      console.log('Submitting join form...')
       const formData = new FormData()
       formData.append('organizationId', data.organizationId)
 
       const result = await joinAction(formData)
+      console.log('Join action result:', result)
 
-      if (result?.error) {
-        toast({
-          title: 'Failed to join organization',
-          description: result.error.message || 'Please try again later.',
-          variant: 'destructive',
-        })
-        return
+      if (!result) {
+        throw new Error('No response from server')
+      }
+
+      if ('error' in result && result.error) {
+        throw new Error(result.error)
       }
 
       toast({
-        title: 'Successfully joined organization',
-        description: `You have joined ${result.organizationName}`,
+        title: 'Success',
+        description: result.message || 'Successfully joined organization',
       })
 
-      // Note: No need to redirect here as the server action handles it
+      // Redirect to dashboard after successful join
+      router.push('/org/dashboard')
+      router.refresh()
     } catch (error) {
+      console.error('Join error:', error)
       toast({
-        title: 'Something went wrong',
-        description: 'Please try again later.',
         variant: 'destructive',
+        title: 'Error',
+        description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
     } finally {
       setIsLoading(false)

@@ -1,95 +1,123 @@
 'use server'
 
-import { createServerClient, createServiceClient } from '@/lib/supabase'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
-import * as z from 'zod'
+import { z } from 'zod'
+import type { Database } from '@/types/database.types'
 
 const signUpSchema = z.object({
   email: z.string().email('Invalid email address'),
-  password: z.string().min(8, 'Password must be at least 8 characters'),
-  role: z.enum(['admin', 'employee']),
-  displayName: z.string().min(2, 'Display name must be at least 2 characters'),
+  password: z
+    .string()
+    .min(8, 'Password must be at least 8 characters')
+    .regex(
+      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/,
+      'Password must contain at least one uppercase letter, one lowercase letter, and one number'
+    ),
+  displayName: z.string()
+    .min(2, 'Display name must be at least 2 characters')
+    .max(50, 'Display name must be less than 50 characters')
+    .regex(/^[a-zA-Z0-9\s\-_]+$/, 'Display name can only contain letters, numbers, spaces, hyphens, and underscores'),
+  role: z.enum(['admin', 'employee'], {
+    required_error: 'Please select a role',
+  }),
 })
 
 export async function signUpAction(formData: FormData) {
-  const serviceClient = createServiceClient()
-  const supabase = createServerClient()
-  
+  console.log('OrgSignUpAction received form data:', {
+    email: formData.get('email'),
+    displayName: formData.get('displayName'),
+    role: formData.get('role'),
+    hasPassword: !!formData.get('password'),
+  })
+
   try {
-    // Validate form data
-    const validatedData = signUpSchema.parse({
+    const validatedFields = signUpSchema.safeParse({
       email: formData.get('email'),
       password: formData.get('password'),
-      role: formData.get('role'),
       displayName: formData.get('displayName'),
+      role: formData.get('role'),
     })
 
-    // Create the auth user with admin client
-    const { data: signUpData, error: signUpError } = await serviceClient.auth.admin.createUser({
-      email: validatedData.email,
-      password: validatedData.password,
-      email_confirm: true, // Auto-confirm email for now
-      user_metadata: {
-        role: validatedData.role,
-        display_name: validatedData.displayName,
+    if (!validatedFields.success) {
+      console.error('Validation error:', validatedFields.error)
+      return {
+        error: 'Invalid form data',
+        details: validatedFields.error.errors,
       }
+    }
+
+    // Create Supabase client
+    const cookieStore = cookies()
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          get(name: string) {
+            return cookieStore.get(name)?.value
+          },
+          set(name: string, value: string, options: any) {
+            cookieStore.set({ name, value, ...options })
+          },
+          remove(name: string, options: any) {
+            cookieStore.set({ name, value: '', ...options })
+          },
+        },
+      }
+    )
+
+    console.log('Attempting org signup...')
+    // Sign up the user
+    const { data: authData, error: signUpError } = await supabase.auth.signUp({
+      email: validatedFields.data.email,
+      password: validatedFields.data.password,
+      options: {
+        data: {
+          display_name: validatedFields.data.displayName,
+          role: validatedFields.data.role,
+        },
+        emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/org/org-auth/callback`,
+      },
     })
 
     if (signUpError) {
-      console.error('Sign up error:', signUpError)
+      console.error('Org signup error:', signUpError)
       return { error: signUpError.message }
     }
 
-    if (!signUpData.user) {
-      console.error('No user data after sign up')
+    if (!authData.user) {
+      console.error('No user data after org signup')
       return { error: 'Failed to create user' }
     }
 
-    // Create profile without organization
-    const { error: profileError } = await serviceClient
+    console.log('Creating org user profile...')
+    // Create user profile
+    const { error: profileError } = await supabase
       .from('profiles')
       .insert({
-        user_id: signUpData.user.id,
-        display_name: validatedData.displayName,
-        role: validatedData.role,
-        email: validatedData.email,
+        user_id: authData.user.id,
+        email: validatedFields.data.email,
+        display_name: validatedFields.data.displayName,
+        role: validatedFields.data.role,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
 
     if (profileError) {
-      console.error('Profile creation error:', profileError)
-      // Clean up the user if profile creation fails
-      await serviceClient.auth.admin.deleteUser(signUpData.user.id)
-      return { error: 'Failed to create profile' }
+      console.error('Org profile creation error:', profileError)
+      return { error: 'Failed to create user profile' }
     }
 
-    // Sign in the user immediately since email is auto-confirmed
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email: validatedData.email,
-      password: validatedData.password,
-    })
-
-    if (signInError) {
-      console.error('Sign in error after signup:', signInError)
-      return { 
-        success: true,
-        message: 'Account created successfully, but automatic sign-in failed. Please sign in manually.',
-      }
-    }
-
+    console.log('Org signup successful')
     return { 
       success: true,
-      message: 'Account created successfully. You can now join or create an organization.',
+      message: 'Account created successfully. Please check your email for verification.',
     }
-
   } catch (error) {
-    console.error('Unexpected error during sign up:', error)
-    if (error instanceof z.ZodError) {
-      const { fieldErrors } = error.flatten()
-      const firstError = Object.values(fieldErrors)[0]?.[0]
-      return { error: firstError || 'Invalid form data' }
+    console.error('Unexpected error:', error)
+    return {
+      error: 'Something went wrong. Please try again.',
     }
-    return { error: 'An unexpected error occurred' }
   }
 } 
