@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { OrgSignInForm } from '@/components/org/signin-form'
-import { createServerSupabaseClient } from '@/lib/server/supabase'
+import { createServerClient } from '@supabase/ssr'
+import { cookies } from 'next/headers'
 
 export const metadata: Metadata = {
   title: 'Sign In - Organization',
@@ -11,7 +12,32 @@ export const metadata: Metadata = {
 
 export default async function SignInPage() {
   // Check if user is already signed in
-  const supabase = await createServerSupabaseClient()
+  const cookieStore = cookies()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
+        },
+        remove(name: string, options: any) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
+        },
+      },
+    }
+  )
   const { data: { session } } = await supabase.auth.getSession()
 
   if (session) {

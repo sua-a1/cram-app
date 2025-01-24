@@ -9,12 +9,14 @@ import { DataTable } from "./data-table"
 import { getColumns } from "./columns"
 import { TemplateDialog } from "./template-dialog"
 import { useTemplates } from "@/hooks/use-templates"
+import { useToast } from "@/hooks/use-toast"
 import type { TicketTemplate } from "@/types/tickets"
 
 export default function TemplatesPage() {
   const [open, setOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<TicketTemplate | null>(null)
   const { templates, loading, fetchTemplates, subscribeToTemplates } = useTemplates()
+  const { toast } = useToast()
 
   const handleEdit = useCallback((template: TicketTemplate) => {
     setSelectedTemplate(template)
@@ -28,14 +30,25 @@ export default function TemplatesPage() {
       })
       
       if (!response.ok) {
-        throw new Error('Failed to delete template')
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to delete template')
       }
+
+      toast({
+        title: "Success",
+        description: "Template deleted successfully",
+      })
     } catch (error) {
       console.error('Error deleting template:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to delete template",
+        variant: "destructive",
+      })
       // If delete fails, refetch to ensure correct state
       fetchTemplates()
     }
-  }, [fetchTemplates])
+  }, [fetchTemplates, toast])
 
   useEffect(() => {
     // Initial fetch
@@ -65,13 +78,26 @@ export default function TemplatesPage() {
       })
       
       if (!response.ok) {
-        throw new Error('Failed to save template')
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to save template')
       }
+
+      toast({
+        title: "Success",
+        description: selectedTemplate 
+          ? "Template updated successfully" 
+          : "Template created successfully",
+      })
       
       setOpen(false)
       setSelectedTemplate(null)
     } catch (error) {
       console.error('Error saving template:', error)
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to save template",
+        variant: "destructive",
+      })
       // If save fails, refetch to ensure correct state
       fetchTemplates()
     }

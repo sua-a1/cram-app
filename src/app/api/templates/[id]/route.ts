@@ -1,6 +1,7 @@
 import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { createServiceClient } from '@/lib/server/supabase';
 import { NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 
 export async function PUT(
   request: Request,
@@ -9,11 +10,15 @@ export async function PUT(
   try {
     const data = await request.json();
     const serviceClient = createServiceClient();
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get the current session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      return NextResponse.json({ error: 'Authentication error' }, { status: 401 });
+    }
+    if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
@@ -24,8 +29,28 @@ export async function PUT(
       .eq('user_id', session.user.id)
       .single();
 
-    if (profileError || !profile?.org_id) {
+    if (profileError) {
+      console.error('Profile error:', profileError);
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 });
+    }
+    if (!profile?.org_id) {
       return NextResponse.json({ error: 'No organization found' }, { status: 404 });
+    }
+
+    // Verify template exists and belongs to org
+    const { data: existingTemplate, error: templateCheckError } = await serviceClient
+      .from('ticket_message_templates')
+      .select('id')
+      .eq('id', params.id)
+      .eq('org_id', profile.org_id)
+      .single();
+
+    if (templateCheckError) {
+      console.error('Template check error:', templateCheckError);
+      return NextResponse.json({ error: 'Failed to verify template' }, { status: 500 });
+    }
+    if (!existingTemplate) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 });
     }
 
     // Update the template
@@ -39,11 +64,12 @@ export async function PUT(
         updated_at: new Date().toISOString(),
       })
       .eq('id', params.id)
-      .eq('org_id', profile.org_id) // Ensure template belongs to user's org
+      .eq('org_id', profile.org_id)
       .select()
       .single();
 
     if (templateError) {
+      console.error('Template update error:', templateError);
       return NextResponse.json(
         { error: `Failed to update template: ${templateError.message}` },
         { status: 500 }
@@ -66,11 +92,15 @@ export async function DELETE(
 ) {
   try {
     const serviceClient = createServiceClient();
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get the current session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    if (sessionError || !session?.user) {
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      return NextResponse.json({ error: 'Authentication error' }, { status: 401 });
+    }
+    if (!session?.user) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
@@ -81,8 +111,28 @@ export async function DELETE(
       .eq('user_id', session.user.id)
       .single();
 
-    if (profileError || !profile?.org_id) {
+    if (profileError) {
+      console.error('Profile error:', profileError);
+      return NextResponse.json({ error: 'Failed to fetch user profile' }, { status: 500 });
+    }
+    if (!profile?.org_id) {
       return NextResponse.json({ error: 'No organization found' }, { status: 404 });
+    }
+
+    // Verify template exists and belongs to org
+    const { data: existingTemplate, error: templateCheckError } = await serviceClient
+      .from('ticket_message_templates')
+      .select('id')
+      .eq('id', params.id)
+      .eq('org_id', profile.org_id)
+      .single();
+
+    if (templateCheckError) {
+      console.error('Template check error:', templateCheckError);
+      return NextResponse.json({ error: 'Failed to verify template' }, { status: 500 });
+    }
+    if (!existingTemplate) {
+      return NextResponse.json({ error: 'Template not found' }, { status: 404 });
     }
 
     // Delete the template
@@ -90,9 +140,10 @@ export async function DELETE(
       .from('ticket_message_templates')
       .delete()
       .eq('id', params.id)
-      .eq('org_id', profile.org_id); // Ensure template belongs to user's org
+      .eq('org_id', profile.org_id);
 
     if (deleteError) {
+      console.error('Template delete error:', deleteError);
       return NextResponse.json(
         { error: `Failed to delete template: ${deleteError.message}` },
         { status: 500 }

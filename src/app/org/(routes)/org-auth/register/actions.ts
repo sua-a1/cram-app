@@ -4,18 +4,18 @@ import { createServerSupabaseClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 
 export async function registerAction(formData: FormData) {
-  const supabase = createServerSupabaseClient()
-
-  // Get current session
-  const { data: { session } } = await supabase.auth.getSession()
-  if (!session?.user) {
-    return { error: 'Not authenticated' }
-  }
-
-  const name = formData.get('name') as string
-  const domain = formData.get('domain') as string
-
   try {
+    const supabase = await createServerSupabaseClient()
+
+    // Get current session
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session?.user) {
+      return { error: 'Not authenticated' }
+    }
+
+    const name = formData.get('name') as string
+    const domain = formData.get('domain') as string
+
     // Create organization
     const { data: org, error: orgError } = await supabase
       .from('organizations')

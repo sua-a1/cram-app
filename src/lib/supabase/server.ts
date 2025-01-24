@@ -1,4 +1,4 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { type Database } from '@/types/database.types'
 
@@ -21,7 +21,29 @@ if (!supabaseServiceKey) {
 // Create a server component client that handles cookies
 export async function createServerSupabaseClient() {
   const cookieStore = cookies()
-  return createServerComponentClient<Database>({ 
-    cookies: () => cookieStore 
-  })
+  return createServerClient<Database>(
+    supabaseUrl,
+    supabaseAnonKey,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
+        },
+        remove(name: string, options: any) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
+        },
+      },
+    }
+  )
 } 
