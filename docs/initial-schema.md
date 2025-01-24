@@ -134,7 +134,27 @@ CREATE TABLE IF NOT EXISTS public.internal_notes (
 );
 
 ------------------------------------------------------------------------
--- 8. INDEXES
+-- 8. NOTIFICATIONS TABLE
+--    - Stores user notifications for ticket updates and messages
+------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.notifications (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id uuid NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
+    ticket_id uuid NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+    type text NOT NULL CHECK (type IN ('status_update', 'new_message')),
+    message text NOT NULL,
+    read boolean DEFAULT false,
+    message_id uuid REFERENCES public.ticket_messages(id) ON DELETE CASCADE,
+    created_at timestamptz DEFAULT now(),
+    metadata jsonb DEFAULT '{}'::jsonb,
+    CONSTRAINT valid_notification_type CHECK (
+        (type = 'status_update' AND message_id IS NULL) OR
+        (type = 'new_message' AND message_id IS NOT NULL)
+    )
+);
+
+------------------------------------------------------------------------
+-- 9. INDEXES
 ------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_profiles_org_id ON public.profiles(org_id);
 CREATE INDEX IF NOT EXISTS idx_teams_org_id ON public.teams(org_id);
@@ -146,9 +166,12 @@ CREATE INDEX IF NOT EXISTS idx_ticket_messages_template_id ON public.ticket_mess
 CREATE INDEX IF NOT EXISTS idx_templates_org_id ON public.ticket_message_templates(org_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_external_id ON public.ticket_messages(external_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_customer_email ON public.ticket_messages(author_email);
+CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_read ON public.notifications(read);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
 
 ------------------------------------------------------------------------
--- 9. TRIGGERS
+-- 10. TRIGGERS
 ------------------------------------------------------------------------
 -- Auto-update updated_at columns
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -215,7 +238,7 @@ CREATE TRIGGER set_message_author_info_trigger
   EXECUTE FUNCTION public.set_message_author_info();
 
 ------------------------------------------------------------------------
--- 10. RLS POLICIES
+-- 11. RLS POLICIES
 ------------------------------------------------------------------------
 -- Enable RLS on all tables
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
@@ -225,6 +248,7 @@ ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_message_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.internal_notes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
 -- Organization Policies
 CREATE POLICY "Users can view their organization"
@@ -478,6 +502,50 @@ CREATE POLICY "Author or admin can delete internal notes"
     )
   );
 
+-- Notification Policies
+CREATE POLICY "Users can view their own notifications"
+    ON public.notifications FOR SELECT
+    TO authenticated
+    USING (auth.uid() = user_id);
+
+CREATE POLICY "System can insert notifications"
+    ON public.notifications FOR INSERT
+    TO authenticated
+    WITH CHECK (true);
+
+CREATE POLICY "Users can update read status of their own notifications"
+    ON public.notifications FOR UPDATE
+    TO authenticated
+    USING (auth.uid() = user_id)
+    WITH CHECK (auth.uid() = user_id);
+
+-- Notification Triggers
+CREATE OR REPLACE FUNCTION public.handle_ticket_status_update()
+RETURNS TRIGGER AS $$
+// ... function body as in migration ...
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE OR REPLACE FUNCTION public.handle_new_ticket_message()
+RETURNS TRIGGER AS $$
+// ... function body as in migration ...
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+CREATE TRIGGER on_ticket_status_change
+    AFTER UPDATE ON public.tickets
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_ticket_status_update();
+
+CREATE TRIGGER on_new_ticket_message
+    AFTER INSERT ON public.ticket_messages
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_new_ticket_message();
+
+-- Cleanup function for old notifications
+CREATE OR REPLACE FUNCTION public.cleanup_old_notifications()
+RETURNS void AS $$
+// ... function body as in migration ...
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
 -- Grant access to authenticated users
 GRANT ALL ON public.organizations TO authenticated;
 GRANT ALL ON public.profiles TO authenticated;
@@ -486,6 +554,7 @@ GRANT ALL ON public.tickets TO authenticated;
 GRANT ALL ON public.ticket_messages TO authenticated;
 GRANT ALL ON public.ticket_message_templates TO authenticated;
 GRANT ALL ON public.internal_notes TO authenticated;
+GRANT ALL ON public.notifications TO authenticated;
 
 ------------------------------------------------------------------------
 -- The above schema covers:
@@ -496,5 +565,6 @@ GRANT ALL ON public.internal_notes TO authenticated;
 -- 5. Message threading and templates
 -- 6. Internal notes for employees/admins
 -- 7. Email integration support
--- 8. Row Level Security policies
+-- 8. Notification support
+-- 9. Row Level Security policies
 ------------------------------------------------------------------------

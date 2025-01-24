@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { getCurrentUser } from '@/lib/server/auth-logic'
-import { createServerSupabaseClient, createServiceClient } from '@/lib/server/supabase'
+import { createServiceClient } from '@/lib/server/supabase'
 import { TicketDetails } from './ticket-details'
 import type { Metadata } from 'next'
 import type { TicketWithDetails, TicketMessage } from '@/types/tickets'

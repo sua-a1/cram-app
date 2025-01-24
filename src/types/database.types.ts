@@ -12,6 +12,7 @@ export type TicketStatus = 'open' | 'in-progress' | 'closed'
 export type TicketPriority = 'low' | 'medium' | 'high'
 export type MessageType = 'public' | 'internal'
 export type OrganizationStatus = 'active' | 'inactive' | 'pending'
+export type NotificationType = 'status_update' | 'new_message'
 
 export interface Database {
   public: {
@@ -355,6 +356,61 @@ export interface Database {
           }
         ]
       }
+      notifications: {
+        Row: {
+          id: string
+          user_id: string
+          ticket_id: string
+          type: NotificationType
+          message: string
+          read: boolean
+          message_id: string | null
+          created_at: string
+          metadata: Json
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          ticket_id: string
+          type: NotificationType
+          message: string
+          read?: boolean
+          message_id?: string | null
+          created_at?: string
+          metadata?: Json
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          ticket_id?: string
+          type?: NotificationType
+          message?: string
+          read?: boolean
+          message_id?: string | null
+          created_at?: string
+          metadata?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_user_id_fkey"
+            columns: ["user_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+          {
+            foreignKeyName: "notifications_ticket_id_fkey"
+            columns: ["ticket_id"]
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_message_id_fkey"
+            columns: ["message_id"]
+            referencedRelation: "ticket_messages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -368,6 +424,7 @@ export interface Database {
       ticket_priority: TicketPriority
       message_type: MessageType
       organization_status: OrganizationStatus
+      notification_type: NotificationType
     }
     CompositeTypes: {
       [_ in never]: never

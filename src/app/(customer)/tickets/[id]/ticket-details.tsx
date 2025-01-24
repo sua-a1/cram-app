@@ -29,13 +29,13 @@ function MessageItem({ message, isCurrentUser }: { message: TicketMessage; isCur
     ? 'You' 
     : message.author_role === 'customer'
       ? message.author_name || 'Unknown Customer'
-      : message.author?.display_name || 'Unknown User';
+      : message.author?.display_name || message.author_name || 'Unknown User';
 
   const avatarInitial = isCurrentUser 
     ? 'Y' 
     : message.author_role === 'customer'
       ? (message.author_name?.[0] || 'C')
-      : message.author?.display_name?.[0] || 'U';
+      : message.author?.display_name?.[0] || message.author_name?.[0] || 'U';
 
   return (
     <div className={cn(

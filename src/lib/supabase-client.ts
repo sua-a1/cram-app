@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { type Database } from '@/types/supabase'
+import { type Database } from '@/types/database.types'
 
 // Client-side Supabase client with limited access
 // Only use this in client components for auth flows

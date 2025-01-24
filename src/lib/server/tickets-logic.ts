@@ -1,4 +1,4 @@
-import { type Database } from '@/types/supabase'
+import { type Database } from '@/types/database.types'
 
 type Ticket = Database['public']['Tables']['tickets']['Row']
 type TicketInsert = Database['public']['Tables']['tickets']['Insert']

@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/server/auth-logic'
 import { Button } from '@/components/ui/button'
 import { SignOutButton } from '@/components/auth/sign-out-button'
 import { Home, Ticket, User } from 'lucide-react'
+import { NotificationWrapper } from '@/components/notifications/notification-wrapper'
 
 export default async function CustomerLayout({
   children,
@@ -54,6 +55,7 @@ export default async function CustomerLayout({
             </nav>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationWrapper />
             <Button variant="ghost" asChild>
               <Link href="/user">
                 <User className="mr-2 h-4 w-4" />

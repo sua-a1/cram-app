@@ -94,4 +94,37 @@ export interface Team {
   name: string
   createdAt: string
   updatedAt: string
+}
+
+export type NotificationType = 'status_update' | 'new_message';
+
+export interface NotificationMetadata {
+    // For status updates
+    old_status?: string;
+    new_status?: string;
+    updated_by?: string;
+    
+    // For new messages
+    author_id?: string;
+    author_role?: string;
+    message_preview?: string;
+}
+
+export interface Notification {
+    id: string;
+    user_id: string;
+    ticket_id: string;
+    type: NotificationType;
+    message: string;
+    read: boolean;
+    message_id?: string;
+    created_at: string;
+    metadata: NotificationMetadata;
+}
+
+export interface NotificationFilters {
+    read?: boolean;
+    type?: NotificationType;
+    limit?: number;
+    offset?: number;
 } 

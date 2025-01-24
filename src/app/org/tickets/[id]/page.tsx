@@ -10,7 +10,7 @@ import type {
   DBTicketMessage,
   TicketMessage
 } from '@/types/tickets';
-import type { Json } from '@/types/supabase';
+import type { Json } from '@/types/database.types';
 import { useParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/providers/supabase-auth-provider';
 import { Button } from '@/components/ui/button';

@@ -1,4 +1,4 @@
-import { createServerSupabaseClient, createServiceClient } from '@/lib/server/supabase'
+import { createServiceClient } from '@/lib/server/supabase'
 import type { 
   CreateTicketInput, 
   UpdateTicketInput, 
@@ -219,7 +219,7 @@ export async function getCustomerTickets(userId: string): Promise<TicketWithDeta
     .from('tickets')
     .select(`
       *,
-      handling_org:organizations!handling_org_id(id, name),
+      handling_org:organizations(id, name),
       assigned_employee:profiles!assigned_employee(user_id, display_name),
       assigned_team:teams(id, name)
     `)
@@ -231,15 +231,9 @@ export async function getCustomerTickets(userId: string): Promise<TicketWithDeta
     return []
   }
 
-  const tickets = data as unknown as Array<Database['public']['Tables']['tickets']['Row'] & {
-    handling_org: [{ id: string; name: string }] | null
-    assigned_employee: [{ user_id: string; display_name: string }] | null
-    assigned_team: [{ id: string; name: string }] | null
-  }>
-
-  return tickets.map(ticket => ({
+  return (data || []).map(ticket => ({
     ...ticket,
-    handling_org: ticket.handling_org?.[0] || null,
+    handling_org: ticket.handling_org || null,
     assigned_employee_details: ticket.assigned_employee?.[0] || null,
     assigned_team_details: ticket.assigned_team?.[0] || null
   })) as TicketWithDetails[]
