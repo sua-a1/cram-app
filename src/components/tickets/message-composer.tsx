@@ -15,6 +15,7 @@ import { Loader2, Send, Bold, Italic, Link2, Image as ImageIcon, List, Code, Quo
 import { cn } from '@/lib/utils';
 import type { MessageType } from '@/types/tickets';
 import { useDebounce } from '@/hooks/use-debounce';
+import { TemplateSelector } from './template-selector';
 
 interface MessageComposerProps {
   ticketId: string;
@@ -251,188 +252,196 @@ export function MessageComposer({
     };
   }, []);
 
+  const handleTemplateSelect = useCallback((template: { content: string }) => {
+    if (editor) {
+      editor.commands.setContent(template.content)
+    }
+  }, [editor])
+
   return (
-    <form onSubmit={handleSubmit} className={cn('space-y-4', className)}>
-      <div className="rounded-md border">
-        <div className="flex flex-wrap gap-1 border-b p-1">
-          <Toggle
-            size="sm"
-            pressed={editor?.isActive('bold')}
-            onPressedChange={() => editor?.chain().focus().toggleBold().run()}
-            disabled={disabled}
-            aria-label="Toggle bold"
-          >
-            <Bold className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor?.isActive('italic')}
-            onPressedChange={() => editor?.chain().focus().toggleItalic().run()}
-            disabled={disabled}
-            aria-label="Toggle italic"
-          >
-            <Italic className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor?.isActive('bulletList')}
-            onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}
-            disabled={disabled}
-            aria-label="Toggle bullet list"
-          >
-            <List className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor?.isActive('code')}
-            onPressedChange={() => editor?.chain().focus().toggleCode().run()}
-            disabled={disabled}
-            aria-label="Toggle code"
-          >
-            <Code className="h-4 w-4" />
-          </Toggle>
-          <Toggle
-            size="sm"
-            pressed={editor?.isActive('blockquote')}
-            onPressedChange={() => editor?.chain().focus().toggleBlockquote().run()}
-            disabled={disabled}
-            aria-label="Toggle quote"
-          >
-            <Quote className="h-4 w-4" />
-          </Toggle>
-          <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
-            <DialogTrigger asChild>
-              <Toggle
-                size="sm"
-                pressed={editor?.isActive('link')}
-                disabled={disabled}
-                aria-label="Insert link"
-              >
-                <Link2 className="h-4 w-4" />
-              </Toggle>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Insert Link</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="url">URL</Label>
-                  <Input
-                    id="url"
-                    name="url"
-                    placeholder="https://example.com"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const url = e.currentTarget.value;
-                        if (url) {
-                          setLink(url);
-                          setShowLinkDialog(false);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button 
-                    type="button"
-                    onClick={(e) => {
+    <div className={cn('space-y-2', className)}>
+      <div className="flex items-center gap-1 border-b pb-2">
+        <Toggle
+          size="sm"
+          pressed={editor?.isActive('bold')}
+          onPressedChange={() => editor?.chain().focus().toggleBold().run()}
+          disabled={disabled}
+          aria-label="Bold"
+        >
+          <Bold className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor?.isActive('italic')}
+          onPressedChange={() => editor?.chain().focus().toggleItalic().run()}
+          disabled={disabled}
+          aria-label="Italic"
+        >
+          <Italic className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor?.isActive('bulletList')}
+          onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}
+          disabled={disabled}
+          aria-label="Bullet List"
+        >
+          <List className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor?.isActive('code')}
+          onPressedChange={() => editor?.chain().focus().toggleCode().run()}
+          disabled={disabled}
+          aria-label="Code"
+        >
+          <Code className="h-4 w-4" />
+        </Toggle>
+        <Toggle
+          size="sm"
+          pressed={editor?.isActive('blockquote')}
+          onPressedChange={() => editor?.chain().focus().toggleBlockquote().run()}
+          disabled={disabled}
+          aria-label="Quote"
+        >
+          <Quote className="h-4 w-4" />
+        </Toggle>
+        <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Insert Link</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="url">URL</Label>
+                <Input
+                  id="url"
+                  name="url"
+                  placeholder="https://example.com"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
                       e.preventDefault();
-                      const input = document.getElementById('url') as HTMLInputElement;
-                      const url = input.value;
+                      const url = e.currentTarget.value;
                       if (url) {
                         setLink(url);
                         setShowLinkDialog(false);
                       }
-                    }}
-                  >
-                    Insert
-                  </Button>
-                </div>
+                    }
+                  }}
+                />
               </div>
-            </DialogContent>
-          </Dialog>
-
-          <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
-            <DialogTrigger asChild>
-              <Toggle
-                size="sm"
-                disabled={disabled}
-                aria-label="Insert image"
-              >
-                <ImageIcon className="h-4 w-4" />
-              </Toggle>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Insert Image</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="imageUrl">Image URL</Label>
-                  <Input
-                    id="imageUrl"
-                    name="url"
-                    placeholder="https://example.com/image.jpg"
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const url = e.currentTarget.value;
-                        if (url) {
-                          insertImage(url);
-                          setShowImageDialog(false);
-                        }
-                      }
-                    }}
-                  />
-                </div>
-                <div className="flex justify-end">
-                  <Button 
-                    type="button"
-                    onClick={(e) => {
+              <div className="flex justify-end">
+                <Button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const input = document.getElementById('url') as HTMLInputElement;
+                    const url = input.value;
+                    if (url) {
+                      setLink(url);
+                      setShowLinkDialog(false);
+                    }
+                  }}
+                >
+                  Insert
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+          <DialogTrigger asChild>
+            <Toggle
+              size="sm"
+              pressed={editor?.isActive('link')}
+              disabled={disabled}
+              aria-label="Link"
+            >
+              <Link2 className="h-4 w-4" />
+            </Toggle>
+          </DialogTrigger>
+        </Dialog>
+        <Dialog open={showImageDialog} onOpenChange={setShowImageDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Insert Image</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="imageUrl">Image URL</Label>
+                <Input
+                  id="imageUrl"
+                  name="url"
+                  placeholder="https://example.com/image.jpg"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
                       e.preventDefault();
-                      const input = document.getElementById('imageUrl') as HTMLInputElement;
-                      const url = input.value;
+                      const url = e.currentTarget.value;
                       if (url) {
                         insertImage(url);
                         setShowImageDialog(false);
                       }
-                    }}
-                  >
-                    Insert
-                  </Button>
-                </div>
+                    }
+                  }}
+                />
               </div>
-            </DialogContent>
-          </Dialog>
+              <div className="flex justify-end">
+                <Button 
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const input = document.getElementById('imageUrl') as HTMLInputElement;
+                    const url = input.value;
+                    if (url) {
+                      insertImage(url);
+                      setShowImageDialog(false);
+                    }
+                  }}
+                >
+                  Insert
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+          <DialogTrigger asChild>
+            <Toggle
+              size="sm"
+              disabled={disabled}
+              aria-label="Image"
+            >
+              <ImageIcon className="h-4 w-4" />
+            </Toggle>
+          </DialogTrigger>
+        </Dialog>
+        <div className="ml-auto">
+          <TemplateSelector onSelectTemplate={handleTemplateSelect} />
         </div>
-        <EditorContent editor={editor} disabled={disabled} />
-        {draftContent && (
-          <div className="px-3 py-1 text-xs text-muted-foreground border-t">
-            Draft saved
-          </div>
-        )}
       </div>
-      <div className="flex justify-end">
-        <Button 
-          type="submit" 
-          disabled={!editor?.getText().trim() || sending || disabled}
-          className="gap-2"
-        >
-          {sending ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Sending
-            </>
-          ) : (
-            <>
-              <Send className="h-4 w-4" />
-              Send Message
-            </>
-          )}
-        </Button>
-      </div>
-    </form>
+      <EditorContent editor={editor} disabled={disabled} />
+      {draftContent && (
+        <div className="px-3 py-1 text-xs text-muted-foreground border-t">
+          Draft saved
+        </div>
+      )}
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="flex justify-end">
+          <Button 
+            type="submit" 
+            disabled={!editor?.getText().trim() || sending || disabled}
+            className="gap-2"
+          >
+            {sending ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Sending
+              </>
+            ) : (
+              <>
+                <Send className="h-4 w-4" />
+                Send Message
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    </div>
   );
-} 
+}

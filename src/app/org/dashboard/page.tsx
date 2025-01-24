@@ -12,6 +12,9 @@ import type {
 import type { Database } from '@/types/database.types'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { FileText } from 'lucide-react'
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 type Organization = Database['public']['Tables']['organizations']['Row']
@@ -123,7 +126,15 @@ export default async function Dashboard() {
             <h1 className="text-2xl font-semibold">
               {org?.name || 'Organization'} {profile?.role === 'admin' ? 'Admin' : 'Employee'} Dashboard
             </h1>
-            <SignOutButton />
+            <div className="flex items-center space-x-2">
+              <Link href="/org/templates">
+                <Button variant="outline">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Templates
+                </Button>
+              </Link>
+              <SignOutButton />
+            </div>
           </div>
         </div>
       </header>

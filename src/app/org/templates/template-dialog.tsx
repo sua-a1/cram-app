@@ -57,11 +57,28 @@ export function TemplateDialog({
   const form = useForm<TemplateFormValues>({
     resolver: zodResolver(templateSchema),
     defaultValues: {
-      name: defaultValues?.name || "",
-      category: defaultValues?.category || "",
-      content: defaultValues?.content || "",
+      name: "",
+      category: "",
+      content: "",
     },
   })
+
+  // Update form values when defaultValues change
+  React.useEffect(() => {
+    if (defaultValues) {
+      form.reset({
+        name: defaultValues.name || "",
+        category: defaultValues.category || "",
+        content: defaultValues.content || "",
+      })
+    } else {
+      form.reset({
+        name: "",
+        category: "",
+        content: "",
+      })
+    }
+  }, [form, defaultValues])
 
   const editor = useEditor({
     extensions: [
@@ -110,6 +127,12 @@ export function TemplateDialog({
     onUpdate: ({ editor }) => {
       form.setValue("content", editor.getHTML(), { shouldValidate: true })
     },
+    // Fix SSR hydration issue
+    editable: true,
+    enableCoreExtensions: true,
+    enableInputRules: true,
+    enablePasteRules: true,
+    immediatelyRender: false,
   })
 
   React.useEffect(() => {
@@ -117,6 +140,14 @@ export function TemplateDialog({
       editor.commands.setContent(defaultValues.content)
     }
   }, [open, editor, defaultValues?.content])
+
+  // Reset form and editor when dialog closes
+  React.useEffect(() => {
+    if (!open) {
+      form.reset()
+      editor?.commands.clearContent()
+    }
+  }, [open, form, editor])
 
   async function handleSubmit(values: TemplateFormValues) {
     try {
@@ -203,4 +234,4 @@ export function TemplateDialog({
       </DialogContent>
     </Dialog>
   )
-} 
+}
