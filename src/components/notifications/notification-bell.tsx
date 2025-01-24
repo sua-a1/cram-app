@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { Bell } from 'lucide-react';
+import { Bell, Loader2 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -30,33 +30,48 @@ export function NotificationBell() {
   const [notifications, setNotifications] = React.useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = React.useState(0);
   const [loading, setLoading] = React.useState(true);
+  const [loadingMore, setLoadingMore] = React.useState(false);
+  const [hasMore, setHasMore] = React.useState(true);
+  const [page, setPage] = React.useState(1);
   const [open, setOpen] = React.useState(false);
 
-  // Fetch notifications
-  const fetchNotifications = React.useCallback(async () => {
+  const ITEMS_PER_PAGE = 10;
+
+  // Fetch notifications with pagination
+  const fetchNotifications = React.useCallback(async (pageNumber: number, append = false) => {
     try {
+      const isFirstPage = pageNumber === 1;
+      if (isFirstPage) setLoading(true);
+      else setLoadingMore(true);
+
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user) return;
+
+      const from = (pageNumber - 1) * ITEMS_PER_PAGE;
+      const to = from + ITEMS_PER_PAGE - 1;
 
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(10);
+        .range(from, to);
 
       if (error) throw error;
 
-      setNotifications(data || []);
+      // Update notifications state
+      setNotifications(prev => append ? [...prev, ...(data || [])] : (data || []));
+      setHasMore(data?.length === ITEMS_PER_PAGE);
 
-      // Get unread count
-      const { count, error: countError } = await supabase
-        .from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('read', false);
+      // Only fetch unread count on initial load
+      if (isFirstPage) {
+        const { count, error: countError } = await supabase
+          .from('notifications')
+          .select('id', { count: 'exact', head: true })
+          .eq('read', false);
 
-      if (countError) throw countError;
-
-      setUnreadCount(count || 0);
+        if (countError) throw countError;
+        setUnreadCount(count || 0);
+      }
     } catch (error: any) {
       console.error('Error fetching notifications:', error);
       toast({
@@ -66,8 +81,107 @@ export function NotificationBell() {
       });
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   }, [supabase, toast]);
+
+  // Handle scroll for infinite loading
+  const handleScroll = React.useCallback((event: React.UIEvent<HTMLDivElement>) => {
+    const target = event.target as HTMLDivElement;
+    const reachedBottom = Math.abs(target.scrollHeight - target.scrollTop - target.clientHeight) < 1;
+    
+    if (reachedBottom && hasMore && !loadingMore) {
+      setPage(prev => prev + 1);
+    }
+  }, [hasMore, loadingMore]);
+
+  // Load more when page changes
+  React.useEffect(() => {
+    if (page > 1) {
+      fetchNotifications(page, true);
+    }
+  }, [page, fetchNotifications]);
+
+  // Initial load and subscription setup
+  React.useEffect(() => {
+    let mounted = true;
+
+    const setupSubscription = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+
+      const channel = supabase
+        .channel('notifications')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${session.user.id}`,
+          },
+          async (payload) => {
+            if (!mounted) return;
+
+            if (payload.eventType === 'INSERT') {
+              const newNotification = payload.new as Notification;
+              toast({
+                title: 'New Notification',
+                description: newNotification.message,
+              });
+
+              // Play notification sound (optional)
+              const audio = new Audio('/sounds/notification.mp3');
+              audio.volume = 0.5;
+              try {
+                await audio.play();
+              } catch (error) {
+                console.log('Audio play failed:', error);
+              }
+
+              // Add to beginning of list and maintain limit
+              setNotifications(prev => [newNotification, ...prev]);
+              setUnreadCount(prev => prev + 1);
+            } 
+            else if (payload.eventType === 'UPDATE') {
+              const updatedNotification = payload.new as Notification;
+              setNotifications(prev => 
+                prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
+              );
+              
+              if (payload.old.read !== updatedNotification.read) {
+                setUnreadCount(prev => 
+                  updatedNotification.read ? Math.max(0, prev - 1) : prev + 1
+                );
+              }
+            }
+            else if (payload.eventType === 'DELETE') {
+              setNotifications(prev => 
+                prev.filter(n => n.id !== payload.old.id)
+              );
+              
+              if (!payload.old.read) {
+                setUnreadCount(prev => Math.max(0, prev - 1));
+              }
+            }
+          }
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    };
+
+    // Initial fetch
+    fetchNotifications(1);
+    const cleanup = setupSubscription();
+
+    return () => {
+      mounted = false;
+      cleanup.then(fn => fn?.());
+    };
+  }, [supabase, toast, fetchNotifications]);
 
   // Mark all as read
   const markAllAsRead = async () => {
@@ -133,102 +247,6 @@ export function NotificationBell() {
     }
   };
 
-  // Set up real-time subscription
-  React.useEffect(() => {
-    let mounted = true;
-
-    const setupSubscription = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) return;
-
-      const channel = supabase
-        .channel('notifications')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'notifications',
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          async (payload) => {
-            if (!mounted) return;
-
-            // Handle different event types
-            if (payload.eventType === 'INSERT') {
-              // Show toast for new notification
-              const newNotification = payload.new as Notification;
-              toast({
-                title: 'New Notification',
-                description: newNotification.message,
-                variant: 'default',
-              });
-
-              // Play notification sound (optional)
-              const audio = new Audio('/sounds/notification.mp3');
-              audio.volume = 0.5;
-              try {
-                await audio.play();
-              } catch (error) {
-                // Ignore audio play errors (browsers may block autoplay)
-                console.log('Audio play failed:', error);
-              }
-
-              // Update notifications list and count
-              setNotifications(prev => {
-                const updated = [newNotification, ...prev].slice(0, 10); // Keep latest 10
-                return updated;
-              });
-              setUnreadCount(prev => prev + 1);
-            } 
-            else if (payload.eventType === 'UPDATE') {
-              // Update existing notification
-              const updatedNotification = payload.new as Notification;
-              setNotifications(prev => 
-                prev.map(n => n.id === updatedNotification.id ? updatedNotification : n)
-              );
-              
-              // Update unread count if read status changed
-              if (payload.old.read !== updatedNotification.read) {
-                setUnreadCount(prev => 
-                  updatedNotification.read ? Math.max(0, prev - 1) : prev + 1
-                );
-              }
-            }
-            else if (payload.eventType === 'DELETE') {
-              // Remove deleted notification
-              setNotifications(prev => 
-                prev.filter(n => n.id !== payload.old.id)
-              );
-              
-              // Update unread count if an unread notification was deleted
-              if (!payload.old.read) {
-                setUnreadCount(prev => Math.max(0, prev - 1));
-              }
-            }
-          }
-        )
-        .subscribe((status) => {
-          console.log('Notification subscription status:', status);
-          if (status === 'SUBSCRIBED') {
-            console.log('Successfully subscribed to notifications');
-          }
-        });
-
-      return () => {
-        mounted = false;
-        supabase.removeChannel(channel);
-      };
-    };
-
-    fetchNotifications();
-    const cleanup = setupSubscription();
-
-    return () => {
-      cleanup.then(fn => fn?.());
-    };
-  }, [supabase, fetchNotifications, toast]);
-
   return (
     <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
@@ -259,7 +277,7 @@ export function NotificationBell() {
           )}
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <ScrollArea className="h-[300px]">
+        <ScrollArea className="h-[300px]" onScroll={handleScroll}>
           {loading ? (
             <div className="space-y-2 p-2">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -283,6 +301,11 @@ export function NotificationBell() {
                   <NotificationItem notification={notification} />
                 </DropdownMenuItem>
               ))}
+              {loadingMore && (
+                <div className="py-2 text-center">
+                  <Loader2 className="h-4 w-4 animate-spin mx-auto" />
+                </div>
+              )}
             </DropdownMenuGroup>
           ) : (
             <div className="p-4 text-center text-sm text-muted-foreground">
@@ -294,3 +317,4 @@ export function NotificationBell() {
     </DropdownMenu>
   );
 } 
+
