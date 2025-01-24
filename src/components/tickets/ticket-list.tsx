@@ -20,6 +20,9 @@ import type {
   CreateTicketInput, 
   UpdateTicketInput 
 } from '@/types/tickets'
+import { useRouter } from 'next/navigation'
+import { TicketListContent } from './ticket-list-content'
+import { TicketSelectionProvider } from './ticket-selection-provider'
 
 interface TicketListProps {
   tickets: TicketWithDetails[]
@@ -32,8 +35,9 @@ export function TicketList({
   tickets, 
   onCreateTicket, 
   onEditTicket,
-  isLoading 
+  isLoading = false
 }: TicketListProps) {
+  const router = useRouter()
   const [search, setSearch] = React.useState('')
   const [statusFilter, setStatusFilter] = React.useState<TicketStatus | 'all'>('all')
   const [priorityFilter, setPriorityFilter] = React.useState<TicketPriority | 'all'>('all')
@@ -46,14 +50,14 @@ export function TicketList({
     return tickets.filter(ticket => {
       const matchesSearch = search === '' || 
         ticket.subject.toLowerCase().includes(search.toLowerCase()) ||
-        ticket.description.toLowerCase().includes(search.toLowerCase())
+        (ticket.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
       
-      const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter
-      const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter
+      const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
+      const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
 
-      return matchesSearch && matchesStatus && matchesPriority
-    })
-  }, [tickets, search, statusFilter, priorityFilter])
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [tickets, search, statusFilter, priorityFilter]);
 
   const handleCreateSubmit = React.useCallback(
     async (data: Omit<CreateTicketInput, 'handling_org_id'>) => {
@@ -89,109 +93,94 @@ export function TicketList({
     [editingTicket, onEditTicket]
   )
 
+  const handleTicketClick = (ticketId: string) => {
+    router.push(`/org/tickets/${ticketId}`)
+  }
+
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search tickets..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
+    <TicketSelectionProvider>
+      <div className="space-y-4">
+        <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search tickets..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-8"
+              />
+            </div>
           </div>
+          <Select
+            value={statusFilter}
+            onValueChange={(value) => setStatusFilter(value as TicketStatus | 'all')}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="open">Open</SelectItem>
+              <SelectItem value="in-progress">In Progress</SelectItem>
+              <SelectItem value="closed">Closed</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select
+            value={priorityFilter}
+            onValueChange={(value) => setPriorityFilter(value as TicketPriority | 'all')}
+          >
+            <SelectTrigger className="w-[140px]">
+              <SelectValue placeholder="Priority" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Priority</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+              <SelectItem value="medium">Medium</SelectItem>
+              <SelectItem value="high">High</SelectItem>
+            </SelectContent>
+          </Select>
+          <Button onClick={() => setCreateDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            New Ticket
+          </Button>
         </div>
-        <Select
-          value={statusFilter}
-          onValueChange={(value) => setStatusFilter(value as TicketStatus | 'all')}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="open">Open</SelectItem>
-            <SelectItem value="in-progress">In Progress</SelectItem>
-            <SelectItem value="closed">Closed</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select
-          value={priorityFilter}
-          onValueChange={(value) => setPriorityFilter(value as TicketPriority | 'all')}
-        >
-          <SelectTrigger className="w-[140px]">
-            <SelectValue placeholder="Priority" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Priority</SelectItem>
-            <SelectItem value="low">Low</SelectItem>
-            <SelectItem value="medium">Medium</SelectItem>
-            <SelectItem value="high">High</SelectItem>
-          </SelectContent>
-        </Select>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          New Ticket
-        </Button>
-      </div>
 
-      {/* Tickets Grid */}
-      {isLoading ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {[...Array(6)].map((_, i) => (
-            <div
-              key={i}
-              className="h-[200px] rounded-lg border bg-muted animate-pulse"
-            />
-          ))}
-        </div>
-      ) : filteredTickets.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredTickets.map((ticket) => (
-            <TicketCard
-              key={ticket.id}
-              ticket={ticket}
-              onView={() => setEditingTicket(ticket)}
-              onEdit={() => setEditingTicket(ticket)}
-            />
-          ))}
-        </div>
-      ) : (
-        <div className="text-center py-12">
-          <p className="text-muted-foreground">No tickets found.</p>
-        </div>
-      )}
+        <TicketListContent 
+          tickets={tickets}
+          filteredTickets={filteredTickets}
+          isLoading={isLoading}
+          handleTicketClick={handleTicketClick}
+        />
 
-      {/* Create Dialog */}
-      <TicketDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onSubmit={handleCreateSubmit}
-        mode="create"
-        isSubmitting={isSubmitting}
-      />
-
-      {/* Edit Dialog */}
-      {editingTicket && (
+        {/* Create Dialog */}
         <TicketDialog
-          open={!!editingTicket}
-          onOpenChange={() => setEditingTicket(null)}
-          onSubmit={handleEditSubmit}
-          defaultValues={{
-            subject: editingTicket.subject,
-            description: editingTicket.description,
-            priority: editingTicket.priority as TicketPriority,
-            status: editingTicket.status as TicketStatus,
-            assigned_team: editingTicket.assigned_team || undefined,
-            assigned_employee: editingTicket.assigned_employee || undefined,
-          }}
-          mode="edit"
+          open={createDialogOpen}
+          onOpenChange={setCreateDialogOpen}
+          onSubmit={handleCreateSubmit}
+          mode="create"
           isSubmitting={isSubmitting}
         />
-      )}
-    </div>
+
+        {/* Edit Dialog */}
+        {editingTicket && (
+          <TicketDialog
+            open={!!editingTicket}
+            onOpenChange={() => setEditingTicket(null)}
+            onSubmit={handleEditSubmit}
+            defaultValues={{
+              subject: editingTicket.subject,
+              description: editingTicket.description ?? undefined,
+              priority: editingTicket.priority as TicketPriority,
+              status: editingTicket.status as TicketStatus,
+              assigned_team: editingTicket.assigned_team === null ? undefined : editingTicket.assigned_team,
+              assigned_employee: editingTicket.assigned_employee === null ? undefined : editingTicket.assigned_employee,
+            }}
+            mode="edit"
+            isSubmitting={isSubmitting}
+          />
+        )}
+      </div>
+    </TicketSelectionProvider>
   )
 } 

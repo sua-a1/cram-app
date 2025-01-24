@@ -131,37 +131,36 @@ export function TicketSection({
 
             console.log('Fetched updated ticket:', updatedTicket) // Debug log
 
+            // Transform the ticket data to match our types
+            const transformedTicket: TicketWithDetails = {
+              ...updatedTicket,
+              assigned_team_details: updatedTicket.teams?.[0],
+              assigned_employee_details: updatedTicket.assigned_employee?.[0],
+              creator: updatedTicket.creator?.[0]
+            }
+
             // Update tickets list based on the event type
             setTickets(currentTickets => {
               if (payload.eventType === 'INSERT') {
-                return [updatedTicket as TicketWithDetails, ...currentTickets]
+                return [transformedTicket, ...currentTickets]
               } else if (payload.eventType === 'UPDATE') {
-                const updatedTickets = currentTickets.map(ticket => 
-                  ticket.id === payload.new!.id ? (updatedTicket as TicketWithDetails) : ticket
+                return currentTickets.map(ticket => 
+                  ticket.id === payload.new!.id ? transformedTicket : ticket
                 )
-                console.log('Updated tickets list:', updatedTickets) // Debug log
-                return updatedTickets
               }
               return currentTickets
             })
 
-            // Update stats
-            setStats(currentStats => {
-              const newStats = { ...currentStats }
-              
-              if (payload.eventType === 'INSERT') {
-                // Handle new ticket
-                if (payload.new!.status === 'open') newStats.open++
-                else if (payload.new!.status === 'in-progress') newStats.inProgress++
-                else if (payload.new!.status === 'closed') newStats.closed++
-              } 
-              else if (payload.eventType === 'UPDATE' && payload.old) {
-                // Handle status change
-                const oldStatus = payload.old.status
-                const newStatus = payload.new!.status
+            // Update stats based on status changes
+            if (payload.eventType === 'UPDATE' && payload.old) {
+              const oldStatus = payload.old.status
+              const newStatus = payload.new.status
 
-                // Only update stats if status has changed
-                if (oldStatus !== newStatus) {
+              // Only update stats if status has changed
+              if (oldStatus !== newStatus) {
+                setStats(currentStats => {
+                  const newStats = { ...currentStats }
+                  
                   // Decrement old status count
                   if (oldStatus === 'open') newStats.open--
                   else if (oldStatus === 'in-progress') newStats.inProgress--
@@ -171,24 +170,23 @@ export function TicketSection({
                   if (newStatus === 'open') newStats.open++
                   else if (newStatus === 'in-progress') newStats.inProgress++
                   else if (newStatus === 'closed') newStats.closed++
-                }
+                  
+                  return newStats
+                })
               }
-              
-              console.log('Updated stats:', newStats) // Debug log
-              return newStats
-            })
+            }
           }
         }
       )
-      .subscribe()
-
-    console.log('Subscribed to ticket changes') // Debug log
+      .subscribe((status) => {
+        console.log('Subscription status:', status)
+      })
 
     return () => {
-      console.log('Unsubscribing from ticket changes') // Debug log
+      console.log('Cleaning up ticket subscription')
       supabase.removeChannel(channel)
     }
-  }, [orgId])
+  }, [orgId]) // Only depend on orgId
 
   return (
     <div className="space-y-8">

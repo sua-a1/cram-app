@@ -1,5 +1,111 @@
 # Supabase Integration Rules
 
+## Authentication & Session Management
+
+1. Auth Provider Setup
+   ```typescript
+   // Always use PKCE flow
+   const supabase = createClient({
+     auth: {
+       flowType: 'pkce',
+       detectSessionInUrl: true,
+     },
+   })
+   ```
+
+2. Session Initialization
+   - Always check initial session on mount
+   - Handle all relevant auth events
+   - Add proper cleanup on unmount
+   - Use proper error handling
+
+3. Sign Out Process
+   - Use global scope to sign out all tabs
+   - Clear local and session storage
+   - Force hard navigation to sign-in page
+   - Add proper error handling
+
+## Client Usage
+
+1. Client Creation
+   - Create client instance at auth provider level
+   - Pass client through context
+   - Don't create new instances per component
+   - Handle client cleanup properly
+
+2. Real-time Subscriptions
+   ```typescript
+   // Always add cleanup
+   useEffect(() => {
+     let mounted = true
+     const channel = supabase.channel('...')
+     
+     // Check mounted state in callbacks
+     if (mounted) {
+       // Handle updates
+     }
+
+     return () => {
+       mounted = false
+       supabase.removeChannel(channel)
+     }
+   }, [])
+   ```
+
+## State Management
+
+1. Component State
+   - Add proper loading states
+   - Handle async operations safely
+   - Add mounted checks for updates
+   - Clean up state on unmount
+
+2. Navigation
+   - Use router for normal navigation
+   - Use window.location.href for auth redirects
+   - Clean up subscriptions before navigation
+   - Handle back button properly
+
+## Error Handling
+
+1. Auth Errors
+   - Handle initialization errors
+   - Handle session errors
+   - Handle sign out errors
+   - Provide user feedback via toasts
+
+2. Data Errors
+   - Handle query errors
+   - Handle subscription errors
+   - Add proper error boundaries
+   - Log errors for debugging
+
+## Best Practices
+
+1. Session Handling
+   - Use getSession() for initial check
+   - Listen to auth state changes
+   - Handle token refresh events
+   - Clean up subscriptions
+
+2. Data Fetching
+   - Add proper type safety
+   - Use single() for unique queries
+   - Add proper error handling
+   - Transform data as needed
+
+3. Real-time Updates
+   - Add proper subscription cleanup
+   - Handle connection status
+   - Check mounted state
+   - Handle event types properly
+
+4. Navigation
+   - Clean up before navigation
+   - Handle auth redirects properly
+   - Maintain state during navigation
+   - Handle back button events
+
 ## Authentication Flow
 
 1. **Client-Side Authentication**
@@ -36,26 +142,6 @@
    - Use `createClient()` for real-time and mutations
    - Handle optimistic updates when appropriate
    - Use proper error handling and loading states
-
-## Best Practices
-
-1. **Session Management**
-   - Don't manually manage cookies
-   - Let Supabase handle session refresh
-   - Use middleware for session checks
-   - Avoid mixing client/server auth checks
-
-2. **Error Handling**
-   - Type your errors properly
-   - Show user-friendly error messages
-   - Log errors for debugging
-   - Handle edge cases (no session, expired token)
-
-3. **Security**
-   - Always use RLS policies
-   - Never expose sensitive data to client
-   - Validate data on server side
-   - Use proper role-based access control
 
 ---
 

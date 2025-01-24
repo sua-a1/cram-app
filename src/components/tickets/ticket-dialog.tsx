@@ -36,7 +36,7 @@ import type { TicketWithDetails, TicketStatus, TicketPriority, CreateTicketInput
 // Create ticket form schema
 const createTicketSchema = z.object({
   subject: z.string().min(1, 'Subject is required').max(100),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().optional(),
   priority: z.enum(['low', 'medium', 'high'] as const),
   assigned_team: z.string().optional(),
   assigned_employee: z.string().optional(),
@@ -45,7 +45,7 @@ const createTicketSchema = z.object({
 // Update ticket form schema
 const updateTicketSchema = z.object({
   subject: z.string().min(1, 'Subject is required').max(100),
-  description: z.string().min(1, 'Description is required'),
+  description: z.string().optional(),
   status: z.enum(['open', 'in-progress', 'closed'] as const),
   priority: z.enum(['low', 'medium', 'high'] as const),
   assigned_team: z.string().optional(),
