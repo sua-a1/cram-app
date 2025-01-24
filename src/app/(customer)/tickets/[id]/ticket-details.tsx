@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast'
 import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
+import { TimeAgo } from '@/components/ui/time-ago'
 
 type TicketStatus = 'open' | 'in-progress' | 'closed'
 
@@ -77,7 +78,7 @@ function MessageItem({ message, isCurrentUser }: { message: TicketMessage; isCur
         </div>
         
         <div className="text-xs text-muted-foreground mt-1">
-          {formatDistanceToNow(new Date(message.created_at), { addSuffix: true })}
+          <TimeAgo date={message.created_at} />
         </div>
       </div>
     </div>
