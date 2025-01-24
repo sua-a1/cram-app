@@ -22,19 +22,19 @@
   - [x] Real-time updates for ticket changes
 
 ### Phase 2: Customer Features (Current Priority)
-- [ ] Customer Ticket Creation
-  - [ ] Customer dashboard view
-  - [ ] Organization selector component
-  - [ ] Ticket creation with org selection
-  - [ ] Real-time ticket status updates
-  - [ ] Customer ticket history view
-  - [ ] RLS policies for customer access
+- [x] Customer Ticket Creation
+  - [x] Customer dashboard view
+  - [x] Organization selector component
+  - [x] Ticket creation with org selection
+  - [x] Real-time ticket status updates
+  - [x] Customer ticket history view
+  - [x] RLS policies for customer access
 
-- [ ] Customer Experience
-  - [ ] Organization verification
-  - [ ] Ticket status notifications
-  - [ ] Simple ticket feedback system
-  - [ ] Customer profile management
+- [x] Customer Experience
+  - [x] Organization verification
+  - [x] Ticket status notifications
+  - [x] Simple ticket feedback system
+  - [x] Customer profile management
 
 ### Phase 3: Enhanced Features
 - [x] Message System

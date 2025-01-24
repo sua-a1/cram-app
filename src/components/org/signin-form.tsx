@@ -21,6 +21,10 @@ import { useToast } from '@/hooks/use-toast'
 import { createClient } from '@/lib/supabase/client'
 import type { SignInCredentials } from '@/types/auth'
 
+// Import the test context hook and type
+import { useSupabaseClient as useTestSupabaseClient } from '@/lib/test/supabase-context'
+import type { MockSupabaseClient } from '@/lib/test/supabase-context'
+
 const signInSchema = z.object({
   email: z.string().email('Invalid email address'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
@@ -34,6 +38,14 @@ export function OrgSignInForm() {
   const searchParams = useSearchParams()
   const { toast } = useToast()
 
+  // Try to use test client first, fall back to real client
+  let testClient: MockSupabaseClient | undefined;
+  try {
+    testClient = useTestSupabaseClient();
+  } catch {
+    // Ignore error if context is not available
+  }
+  
   const redirectUrl = searchParams.get('next') || '/org/dashboard'
 
   const form = useForm<SignInValues>({
@@ -44,12 +56,12 @@ export function OrgSignInForm() {
     },
   })
 
-  async function onSubmit(data: SignInValues) {
+  const onSubmit = async (data: SignInValues) => {
     if (isLoading) return
-    setIsLoading(true)
-
+    
     try {
-      const supabase = createClient()
+      setIsLoading(true)
+      const supabase = testClient ?? createClient()
       const { error: signInError } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -60,11 +72,8 @@ export function OrgSignInForm() {
       toast({
         title: 'Success',
         description: 'Welcome back!',
+        role: 'status',
       })
-      
-      // Important: Set loading to false after successful sign-in
-      // This allows the auth provider to handle navigation
-      setIsLoading(false)
     } catch (error) {
       console.error('Sign in error:', error)
       toast({
@@ -72,6 +81,7 @@ export function OrgSignInForm() {
         title: 'Error',
         description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
+    } finally {
       setIsLoading(false)
     }
   }
@@ -79,7 +89,7 @@ export function OrgSignInForm() {
   return (
     <div className="space-y-6">
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" role="form">
           <FormField
             control={form.control}
             name="email"
@@ -129,7 +139,7 @@ export function OrgSignInForm() {
               </FormItem>
             )}
           />
-          <Button type="submit" className="w-full" disabled={isLoading}>
+          <Button type="submit" className="w-full" disabled={isLoading} aria-disabled={isLoading}>
             {isLoading && (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             )}
