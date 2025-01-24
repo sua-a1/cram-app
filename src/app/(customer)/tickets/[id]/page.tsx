@@ -6,6 +6,7 @@ import type { Metadata } from 'next'
 import type { TicketWithDetails, TicketMessage } from '@/types/tickets'
 import type { PostgrestError } from '@supabase/supabase-js'
 import type { Database } from '@/types/database.types'
+import { TicketStatus, TicketPriority, MessageType } from '@/types/tickets'
 
 type TicketResponse = Database['public']['Tables']['tickets']['Row'] & {
   handling_org: { id: string; name: string } | null
@@ -83,20 +84,10 @@ export default async function CustomerTicketPage({ params }: { params: { id: str
     `)
     .eq('id', params.id)
     .eq('user_id', user.id) // Manually check ownership
-    .single()
+    .single() as { data: Database['public']['Tables']['tickets']['Row'], error: PostgrestError | null }
 
-  console.log('Ticket query result:', {
-    ticket: ticket ? { id: ticket.id, user_id: ticket.user_id } : null,
-    error: ticketError ? { code: ticketError.code, message: ticketError.message } : null
-  })
-
-  if (ticketError) {
-    console.log('Error fetching ticket:', ticketError.code, ticketError.message)
-    return notFound()
-  }
-
-  if (!ticket) {
-    console.log('No ticket found')
+  if (ticketError || !ticket) {
+    console.log('Error fetching ticket:', ticketError?.code, ticketError?.message)
     return notFound()
   }
 
@@ -105,30 +96,103 @@ export default async function CustomerTicketPage({ params }: { params: { id: str
     .from('ticket_messages')
     .select(`
       id,
-      body,
+      ticket_id,
       author_id,
       author_role,
       author_name,
       author_email,
+      body,
       message_type,
       created_at,
       updated_at,
+      is_email,
+      metadata,
+      template_id,
+      parent_message_id,
       source,
+      external_id,
       author:profiles(display_name, role)
     `)
     .eq('ticket_id', params.id)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(20) as { 
+      data: (Database['public']['Tables']['ticket_messages']['Row'] & {
+        author?: Array<{ display_name: string; role: string }>
+      })[] | null;
+      error: PostgrestError | null;
+    }
 
   if (messagesError) {
     console.log('Error fetching messages:', messagesError.code, messagesError.message)
   }
 
+  // Get total count of messages
+  const { count: totalMessages } = await supabase
+    .from('ticket_messages')
+    .select('id', { count: 'exact', head: true })
+    .eq('ticket_id', params.id)
+
+  if (!messages) {
+    console.log('No messages found')
+    return notFound()
+  }
+
+  // Add type guard for messages
+  function isMessageData(data: unknown): data is (Database['public']['Tables']['ticket_messages']['Row'] & {
+    author?: Array<{ display_name: string; role: string }>
+  })[] {
+    return Array.isArray(data) && data.every(msg => 
+      msg !== null && 
+      typeof msg === 'object' && 
+      'id' in msg && 
+      'ticket_id' in msg &&
+      'author_role' in msg &&
+      'message_type' in msg
+    );
+  }
+
+  if (!messages || !isMessageData(messages)) {
+    console.log('Invalid messages data')
+    return notFound()
+  }
+
   const ticketWithDetails = {
-    ...ticket,
-    messages: messages || [],
+    id: ticket.id,
+    user_id: ticket.user_id,
+    subject: ticket.subject,
+    description: ticket.description,
+    status: ticket.status as TicketStatus,
+    priority: ticket.priority as TicketPriority,
+    handling_org_id: ticket.handling_org_id,
+    messages: messages.map(msg => ({
+      id: msg.id,
+      ticket_id: msg.ticket_id,
+      author_id: msg.author_id,
+      author_role: msg.author_role as 'customer' | 'employee' | 'admin',
+      author_name: msg.author_name || msg.author?.[0]?.display_name || null,
+      author_email: msg.author_email || null,
+      body: msg.body,
+      message_type: msg.message_type as MessageType,
+      created_at: msg.created_at,
+      updated_at: msg.updated_at,
+      source: (msg.source || 'web') as 'web' | 'email' | 'api',
+      author: msg.author?.[0],
+      is_email: msg.is_email || false,
+      metadata: msg.metadata || {},
+      template_id: msg.template_id,
+      parent_message_id: msg.parent_message_id,
+      external_id: msg.external_id
+    })) satisfies TicketMessage[],
+    hasMoreMessages: totalMessages ? totalMessages > 20 : false,
+    totalMessages,
     handling_org: null,
     assigned_team: null,
-    assigned_employee: null
+    assigned_employee: null,
+    created_at: ticket.created_at,
+    updated_at: ticket.updated_at
+  } satisfies TicketWithDetails & {
+    hasMoreMessages: boolean;
+    totalMessages: number | null;
   }
 
   return (

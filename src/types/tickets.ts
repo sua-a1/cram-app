@@ -1,8 +1,6 @@
 import type { Database } from './database.types'
 import { Json } from './supabase';
 import type { Profile } from '@/types/profiles';
-import type { Team } from '@/types/teams';
-import type { Organization } from '@/types/organizations';
 
 // Base types from database
 export type DBTicket = Database['public']['Tables']['tickets']['Row'];
@@ -24,6 +22,7 @@ export type DBTicketMessage = {
   source: string;
   external_id: string | null;
 };
+
 export type DBTicketTemplate = Database['public']['Tables']['ticket_message_templates']['Row'];
 
 export type TicketStatus = 'open' | 'in-progress' | 'closed'

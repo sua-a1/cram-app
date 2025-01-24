@@ -43,17 +43,15 @@ This checklist outlines the implementation of customer-facing ticket functionali
   - Mirror org/ticket/[id] layout
   - Show ticket status and metadata
   - Display ticket history
-- [ ] Implement messaging interface
+- [x] Implement messaging interface
   - Reuse ticket-messages component
   - Add customer-specific message styling
   - Support rich text editing
   - Enable image, link, markdown
-- [ ] Add real-time updates
+- [-] Add real-time updates (inconsistent)
   - Update messages in real-time
   - Show typing indicators
   - Update ticket status changes
-- [ ] Display ticket update history in ticket details
-    - Things like "Ticket was set to in-progress by John Doe"
 
 ## 5. Ticket Closure Functionality
 - [ ] Enable ticket closure
@@ -65,10 +63,6 @@ This checklist outlines the implementation of customer-facing ticket functionali
 - [ ] Update customer navigation
   - Show ticket counts/notifications
   - Add breadcrumb navigation
-- [ ] Implement deep linking
-  - Handle direct ticket URL access
-  - Preserve filters in URL
-  - Add share ticket functionality
 
 ## 7. Testing & Validation
 - [ ] Test customer flows

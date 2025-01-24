@@ -122,11 +122,11 @@ export interface Database {
       tickets: {
         Row: {
           id: string
-          user_id: string
           subject: string
           description: string | null
-          status: TicketStatus
-          priority: TicketPriority
+          status: string
+          priority: string
+          user_id: string
           handling_org_id: string
           assigned_team: string | null
           assigned_employee: string | null
@@ -135,11 +135,11 @@ export interface Database {
         }
         Insert: {
           id?: string
-          user_id: string
           subject: string
           description?: string | null
-          status?: TicketStatus
-          priority?: TicketPriority
+          status?: string
+          priority?: string
+          user_id: string
           handling_org_id: string
           assigned_team?: string | null
           assigned_employee?: string | null
@@ -148,11 +148,11 @@ export interface Database {
         }
         Update: {
           id?: string
-          user_id?: string
           subject?: string
           description?: string | null
-          status?: TicketStatus
-          priority?: TicketPriority
+          status?: string
+          priority?: string
+          user_id?: string
           handling_org_id?: string
           assigned_team?: string | null
           assigned_employee?: string | null
@@ -163,24 +163,28 @@ export interface Database {
           {
             foreignKeyName: "tickets_assigned_employee_fkey"
             columns: ["assigned_employee"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
           {
             foreignKeyName: "tickets_assigned_team_fkey"
             columns: ["assigned_team"]
+            isOneToOne: false
             referencedRelation: "teams"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tickets_handling_org_id_fkey"
             columns: ["handling_org_id"]
+            isOneToOne: false
             referencedRelation: "organizations"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tickets_user_id_fkey"
             columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           }
@@ -191,28 +195,55 @@ export interface Database {
           id: string
           ticket_id: string
           author_id: string
-          message_type: MessageType
           body: string
+          message_type: string
           created_at: string
           updated_at: string
+          is_email: boolean | null
+          metadata: Json | null
+          template_id: string | null
+          parent_message_id: string | null
+          source: string
+          external_id: string | null
+          author_role: string
+          author_name: string | null
+          author_email: string | null
         }
         Insert: {
           id?: string
           ticket_id: string
           author_id: string
-          message_type?: MessageType
           body: string
+          message_type?: string
           created_at?: string
           updated_at?: string
+          is_email?: boolean | null
+          metadata?: Json | null
+          template_id?: string | null
+          parent_message_id?: string | null
+          source?: string
+          external_id?: string | null
+          author_role?: string
+          author_name?: string | null
+          author_email?: string | null
         }
         Update: {
           id?: string
           ticket_id?: string
           author_id?: string
-          message_type?: MessageType
           body?: string
+          message_type?: string
           created_at?: string
           updated_at?: string
+          is_email?: boolean | null
+          metadata?: Json | null
+          template_id?: string | null
+          parent_message_id?: string | null
+          source?: string
+          external_id?: string | null
+          author_role?: string
+          author_name?: string | null
+          author_email?: string | null
         }
         Relationships: [
           {
@@ -226,6 +257,67 @@ export interface Database {
             columns: ["ticket_id"]
             referencedRelation: "tickets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_template_id_fkey"
+            columns: ["template_id"]
+            referencedRelation: "ticket_message_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_messages_parent_message_id_fkey"
+            columns: ["parent_message_id"]
+            referencedRelation: "ticket_messages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      ticket_message_templates: {
+        Row: {
+          id: string
+          org_id: string
+          name: string
+          content: string
+          category: string | null
+          is_shared: boolean
+          created_by: string
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          org_id: string
+          name: string
+          content: string
+          category?: string | null
+          is_shared?: boolean
+          created_by: string
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          org_id?: string
+          name?: string
+          content?: string
+          category?: string | null
+          is_shared?: boolean
+          created_by?: string
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_message_templates_org_id_fkey"
+            columns: ["org_id"]
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_message_templates_created_by_fkey"
+            columns: ["created_by"]
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
           }
         ]
       }

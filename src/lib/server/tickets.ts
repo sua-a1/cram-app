@@ -10,6 +10,7 @@ import type {
   TicketPriority,
   MessageType
 } from '@/types/tickets'
+import type { Database } from '@/types/database.types'
 
 /**
  * Create a new ticket
@@ -214,11 +215,11 @@ export async function getTicketStats(orgId: string) {
 export async function getCustomerTickets(userId: string): Promise<TicketWithDetails[]> {
   const supabase = createServiceClient()
   
-  const { data: tickets, error } = await supabase
+  const { data, error } = await supabase
     .from('tickets')
     .select(`
       *,
-      handling_org:organizations(id, name),
+      handling_org:organizations!handling_org_id(id, name),
       assigned_employee:profiles!assigned_employee(user_id, display_name),
       assigned_team:teams(id, name)
     `)
@@ -230,7 +231,18 @@ export async function getCustomerTickets(userId: string): Promise<TicketWithDeta
     return []
   }
 
-  return tickets as TicketWithDetails[]
+  const tickets = data as unknown as Array<Database['public']['Tables']['tickets']['Row'] & {
+    handling_org: [{ id: string; name: string }] | null
+    assigned_employee: [{ user_id: string; display_name: string }] | null
+    assigned_team: [{ id: string; name: string }] | null
+  }>
+
+  return tickets.map(ticket => ({
+    ...ticket,
+    handling_org: ticket.handling_org?.[0] || null,
+    assigned_employee_details: ticket.assigned_employee?.[0] || null,
+    assigned_team_details: ticket.assigned_team?.[0] || null
+  })) as TicketWithDetails[]
 }
 
 export async function getCustomerTicketStats(userId: string) {

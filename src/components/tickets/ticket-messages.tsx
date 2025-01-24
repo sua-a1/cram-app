@@ -813,9 +813,9 @@ export function TicketMessages({
                 <Loader2 className="h-6 w-6 animate-spin mx-auto" />
               </div>
             )}
-            {[...messages].reverse().map((message) => (
+            {[...messages].reverse().map((message, index) => (
               <MessageItem 
-                key={message.id}
+                key={`${message.id}-${index}`}
                 message={message}
                 isCurrentUser={message.author_id === currentUserId}
                 notes={getNotesForMessage(message.id)}

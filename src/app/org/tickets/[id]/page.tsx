@@ -34,6 +34,7 @@ import {
   MenubarShortcut,
   MenubarTrigger,
 } from "@/components/ui/menubar";
+import { updateTicket as updateTicketAction } from '@/app/actions/tickets';
 
 const TICKET_STATUS_OPTIONS: TicketStatus[] = ['open', 'in-progress', 'closed'];
 const TICKET_PRIORITY_OPTIONS: TicketPriority[] = ['low', 'medium', 'high'];
@@ -258,37 +259,28 @@ export default function TicketDetailPage() {
     try {
       setSaving(true);
 
-      // First check if the ticket still exists
-      const { data: existingTicket, error: checkError } = await supabase
-        .from('tickets')
-        .select('id')
-        .eq('id', ticket?.id)
-        .maybeSingle();
+      // Only send the basic fields that can be updated
+      const updatePayload = {
+        ...(updates.subject && { subject: updates.subject }),
+        ...(updates.description && { description: updates.description }),
+        ...(updates.status && { status: updates.status }),
+        ...(updates.priority && { priority: updates.priority }),
+        updated_at: new Date().toISOString()
+      };
 
-      if (checkError) {
-        throw checkError;
+      // Optimistically update the UI
+      setTicket(prev => prev ? { ...prev, ...updatePayload } : prev);
+
+      // Use the server action to update the ticket
+      const result = await updateTicketAction(ticket?.id!, updates);
+
+      if (!result.success) {
+        // Revert optimistic update on error
+        setTicket(prev => ticket);
+        throw new Error(result.error);
       }
 
-      if (!existingTicket) {
-        throw new Error('Ticket no longer exists');
-      }
-
-      // Proceed with update
-      const { error: updateError } = await supabase
-        .from('tickets')
-        .update(updates)
-        .eq('id', ticket?.id);
-
-      if (updateError) {
-        // Handle specific Postgrest errors
-        if (updateError.code === 'PGRST116') {
-          throw new Error('Ticket not found or you do not have permission to update it');
-        }
-        throw updateError;
-      }
-
-      // Refetch to get updated data
-      await fetchTicket(ticket?.id as string);
+      // Update was successful
       setIsEditing(false);
       setEditedTicket(null);
 
@@ -299,14 +291,9 @@ export default function TicketDetailPage() {
     } catch (error: any) {
       console.error('Error updating ticket:', error);
       
-      // Show more specific error messages
-      const errorMessage = error.code === 'PGRST116' 
-        ? 'The ticket could not be updated. It may have been deleted or you may not have permission to edit it.'
-        : error?.message || 'There was an error updating the ticket. Please try again.';
-      
       toast({
         title: 'Error updating ticket',
-        description: errorMessage,
+        description: error?.message || 'There was an error updating the ticket. Please try again.',
         variant: 'destructive',
       });
 
@@ -388,7 +375,7 @@ export default function TicketDetailPage() {
 
       if (error) throw error;
 
-      if (!messageData) return;
+      if (!messageData) throw new Error('No message data returned');
 
       const newMessage = {
         ...messageData,
@@ -402,10 +389,13 @@ export default function TicketDetailPage() {
       setTicket(prev => {
         if (!prev) return prev;
         const messages = prev.messages || [];
-        // Add new message to the beginning since messages are sorted by created_at DESC
+        // Add new message to the beginning and sort by created_at DESC
+        const updatedMessages = [newMessage, ...messages]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        
         return {
           ...prev,
-          messages: [newMessage, ...messages]
+          messages: updatedMessages
         };
       });
 
@@ -413,6 +403,9 @@ export default function TicketDetailPage() {
         title: 'Message sent',
         description: 'Your message has been sent successfully.',
       });
+
+      // Return undefined to indicate success
+      return undefined;
     } catch (error: any) {
       console.error('Error sending message:', error);
       toast({
@@ -420,7 +413,8 @@ export default function TicketDetailPage() {
         description: error?.message || 'There was an error sending your message. Please try again.',
         variant: 'destructive',
       });
-      throw error; // Re-throw to let the composer know it failed
+      // Throw error to let MessageComposer know it failed
+      throw error;
     }
   };
 
@@ -484,9 +478,12 @@ export default function TicketDetailPage() {
   useEffect(() => {
     if (!ticket?.id || !supabase) return;
 
+    let mounted = true;
+    console.log('Setting up message subscription for ticket:', ticket.id);
+
     // Subscribe to ticket message changes
     const channel = supabase
-      .channel(`ticket-messages-${ticket.id}`)
+      .channel(`ticket-messages-${ticket.id}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
@@ -496,79 +493,106 @@ export default function TicketDetailPage() {
           filter: `ticket_id=eq.${ticket.id}`
         },
         async (payload) => {
+          if (!mounted) return;
           console.log('Message change received:', payload);
           
           if (payload.eventType === 'INSERT') {
-            // Fetch the complete message with author details
-            const { data: messageData } = await supabase
-              .from('ticket_messages')
-              .select(`
-                *,
-                author:profiles(display_name, role)
-              `)
-              .eq('id', payload.new.id)
-              .single();
+            try {
+              // Fetch the complete message with author details
+              const { data: messageData, error } = await supabase
+                .from('ticket_messages')
+                .select(`
+                  *,
+                  author:profiles(display_name, role)
+                `)
+                .eq('id', payload.new.id)
+                .single();
 
-            if (!messageData) return;
+              if (error) {
+                console.error('Error fetching new message:', error);
+                return;
+              }
 
-            const newMessage = {
-              ...messageData,
-              author: messageData.author?.[0],
-              author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
-              message_type: messageData.message_type as MessageType,
-              source: messageData.source as 'web' | 'email' | 'api'
-            } satisfies TicketMessage;
+              if (!messageData || !mounted) return;
 
-            setTicket(prev => {
-              if (!prev) return prev;
-              const messages = prev.messages || [];
-              // Add new message to the beginning since messages are sorted by created_at DESC
-              return {
-                ...prev,
-                messages: [newMessage, ...messages]
-              };
-            });
+              const newMessage = {
+                ...messageData,
+                author: messageData.author?.[0],
+                author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
+                message_type: messageData.message_type as MessageType,
+                source: messageData.source as 'web' | 'email' | 'api'
+              } satisfies TicketMessage;
+
+              setTicket(prev => {
+                if (!prev) return prev;
+                // Create a new messages array with the new message at the beginning
+                const updatedMessages = [
+                  newMessage,
+                  ...(prev.messages?.filter(msg => msg.id !== newMessage.id) || [])
+                ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                
+                return {
+                  ...prev,
+                  messages: updatedMessages
+                };
+              });
+            } catch (error) {
+              console.error('Error handling new message:', error);
+            }
           } 
           else if (payload.eventType === 'UPDATE') {
-            // Fetch updated message with author details
-            const { data: messageData } = await supabase
-              .from('ticket_messages')
-              .select(`
-                *,
-                author:profiles(display_name, role)
-              `)
-              .eq('id', payload.new.id)
-              .single();
+            try {
+              // Fetch updated message with author details
+              const { data: messageData, error } = await supabase
+                .from('ticket_messages')
+                .select(`
+                  *,
+                  author:profiles(display_name, role)
+                `)
+                .eq('id', payload.new.id)
+                .single();
 
-            if (!messageData) return;
+              if (error) {
+                console.error('Error fetching updated message:', error);
+                return;
+              }
 
-            const updatedMessage = {
-              ...messageData,
-              author: messageData.author?.[0],
-              author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
-              message_type: messageData.message_type as MessageType,
-              source: messageData.source as 'web' | 'email' | 'api'
-            } satisfies TicketMessage;
+              if (!messageData || !mounted) return;
 
-            setTicket(prev => {
-              if (!prev) return prev;
-              const messages = prev.messages || [];
-              return {
-                ...prev,
-                messages: messages.map(msg => 
+              const updatedMessage = {
+                ...messageData,
+                author: messageData.author?.[0],
+                author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
+                message_type: messageData.message_type as MessageType,
+                source: messageData.source as 'web' | 'email' | 'api'
+              } satisfies TicketMessage;
+
+              setTicket(prev => {
+                if (!prev) return prev;
+                // Update the message in the array while maintaining sort order
+                const updatedMessages = prev.messages?.map(msg => 
                   msg.id === updatedMessage.id ? updatedMessage : msg
-                )
-              };
-            });
+                ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()) || [];
+                
+                return {
+                  ...prev,
+                  messages: updatedMessages
+                };
+              });
+            } catch (error) {
+              console.error('Error handling message update:', error);
+            }
           }
-          else if (payload.eventType === 'DELETE') {
-            const deletedMessageId = payload.old.id;
+          else if (payload.eventType === 'DELETE' && payload.old?.id) {
             setTicket(prev => {
               if (!prev) return prev;
-              const messages = prev.messages || [];
+              const updatedMessages = (prev.messages || [])
+                .filter(msg => msg.id !== payload.old?.id)
+                .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+              
               return {
                 ...prev,
-                messages: messages.filter(msg => msg.id !== deletedMessageId)
+                messages: updatedMessages
               };
             });
           }
@@ -576,10 +600,14 @@ export default function TicketDetailPage() {
       )
       .subscribe((status) => {
         console.log('Message subscription status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('Successfully subscribed to message updates for ticket:', ticket.id);
+        }
       });
 
     return () => {
       console.log('Cleaning up message subscription');
+      mounted = false;
       supabase.removeChannel(channel);
     };
   }, [ticket?.id, supabase]);

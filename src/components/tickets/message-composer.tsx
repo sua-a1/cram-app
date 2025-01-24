@@ -161,9 +161,8 @@ export function MessageComposer({
       return;
     }
 
-    setSending(true);
-
     try {
+      setSending(true);
       await onSendMessage({
         body: messageContent,
         messageType: 'public'
