@@ -255,13 +255,14 @@ export async function getCustomerTicketStats(userId: string) {
 
   if (error) {
     console.error('Error fetching customer ticket stats:', error)
-    return { open: 0, inProgress: 0, closed: 0 }
+    return { open: 0, inProgress: 0, closed: 0, total: 0 }
   }
 
   return {
     open: data.filter(t => t.status === 'open').length,
     inProgress: data.filter(t => t.status === 'in-progress').length,
-    closed: data.filter(t => t.status === 'closed').length
+    closed: data.filter(t => t.status === 'closed').length,
+    total: data.length
   }
 }
 

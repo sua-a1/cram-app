@@ -43,7 +43,7 @@ export async function registerAction(formData: FormData) {
     if (profileError) throw profileError
 
     revalidatePath('/org/dashboard')
-    return { success: true }
+    return { success: true, organizationId: org.id }
   } catch (error) {
     console.error('Registration error:', error)
     return { 

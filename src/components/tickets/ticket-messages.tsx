@@ -58,8 +58,17 @@ function MessageItem({ message, isCurrentUser, notes = [], onGoToNote, onAddNote
       await onAddNote?.(message.id, noteContent);
       setNoteContent('');
       setIsAddingNote(false);
+      toast({
+        title: "Success",
+        description: "Note added successfully"
+      });
     } catch (error) {
       console.error('Error adding note:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add note. Please try again.",
+        variant: "destructive"
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -289,6 +298,7 @@ function MessageItem({ message, isCurrentUser, notes = [], onGoToNote, onAddNote
                   value={noteContent}
                   onChange={(e) => setNoteContent(e.target.value)}
                   className="min-h-[80px] resize-none border-0 focus-visible:ring-0 p-0 shadow-none text-xs"
+                  disabled={isSubmitting}
                 />
               </div>
               <div className="flex justify-end gap-2 px-3 py-2 border-t bg-[#f8f9fa]">
@@ -312,11 +322,11 @@ function MessageItem({ message, isCurrentUser, notes = [], onGoToNote, onAddNote
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-3 w-3 animate-spin mr-1" />
-                      Sending...
+                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      Adding...
                     </>
                   ) : (
-                    'Comment'
+                    'Add Note'
                   )}
                 </Button>
               </div>

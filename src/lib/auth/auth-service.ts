@@ -58,10 +58,14 @@ async function transformSession(session: Session | null, supabase: any): Promise
 // Store PKCE code verifier in cookie
 function storeCodeVerifier(codeVerifier: string): void {
   const cookieStore = cookies() as unknown as CookieStore
-  const cookie: ResponseCookie = {
+  const cookie = {
     name: 'code_verifier',
     value: codeVerifier,
-    ...COOKIE_OPTIONS
+    path: '/',
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax' as const,
+    expires: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 1 week
   }
   cookieStore.set(cookie)
 }
@@ -115,14 +119,9 @@ export async function signUpWithPKCE(credentials: SignUpCredentials): Promise<Au
     email: credentials.email,
     password: credentials.password,
     options: {
-      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`,
-      codeChallenge,
-      codeChallengeMethod: 'S256',
-      data: {
-        role: credentials.role || 'customer',
-        display_name: credentials.display_name
-      }
-    } as AuthOptions
+      data: { role: credentials.role || 'customer', display_name: credentials.display_name },
+      emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
+    }
   })
 
   if (error) {
@@ -163,6 +162,19 @@ export async function requireAuth(): Promise<AuthSession> {
 }
 
 export class AuthService {
+  static async requireAuth(): Promise<AuthSession> {
+    const session = await getSession()
+    if (!session) {
+      redirect('/auth/signin')
+    }
+    return session
+  }
+
+  static async getCurrentUser(): Promise<AuthUser | null> {
+    const session = await getSession()
+    return session?.user || null
+  }
+
   // Customer Auth Flow
   static async signUpCustomer({ email, password, display_name }: SignUpCredentials): Promise<AuthResponse> {
     const supabase = await createServerClient()
@@ -184,8 +196,7 @@ export class AuthService {
         password,
         options: {
           data: { role: 'customer', display_name },
-          codeChallenge,
-          codeChallengeMethod: 'S256'
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
         }
       })
 
@@ -237,8 +248,7 @@ export class AuthService {
         password,
         options: {
           data: { role, display_name, org_id },
-          codeChallenge,
-          codeChallengeMethod: 'S256'
+          emailRedirectTo: `${process.env.NEXT_PUBLIC_APP_URL}/auth/callback`
         }
       })
 
@@ -287,17 +297,14 @@ export class AuthService {
       // Sign in with PKCE
       const { data: { user, session }, error } = await supabase.auth.signInWithPassword({
         email,
-        password,
-        options: {
-          codeChallenge,
-          codeChallengeMethod: 'S256'
-        }
+        password
       })
 
       if (error) throw error
       if (!user || !session) throw new Error('No user or session after sign in')
 
       const transformedUser = await transformUser(user, supabase)
+      const transformedSession = await transformSession(session, supabase)
 
       // Redirect based on role
       if (transformedUser?.role === 'customer') {
@@ -308,7 +315,7 @@ export class AuthService {
         redirect('/org/access')
       }
 
-      return { user: transformedUser, session }
+      return { user: transformedUser, session: transformedSession }
     } catch (error: any) {
       console.error('Sign in error:', error)
       return { user: null, session: null, error: error.message }
@@ -317,8 +324,8 @@ export class AuthService {
 
   // Require Role
   static async requireRole(allowedRoles: UserRole[]) {
-    const session = await this.requireAuth()
-    const user = await this.getCurrentUser()
+    const session = await AuthService.requireAuth()
+    const user = await AuthService.getCurrentUser()
     
     if (!user?.role || !allowedRoles.includes(user.role)) {
       redirect('/unauthorized')

@@ -1,4 +1,3 @@
-import { supabaseAdmin } from './supabase'
 import { type Database } from '@/types/supabase'
 
 type Ticket = Database['public']['Tables']['tickets']['Row']

@@ -1,6 +1,18 @@
 // Re-export all types from their respective modules
-export * from './auth'
 export * from './database.types'
+export { UserRoles } from './auth'
+export type {
+  UserRole,
+  AuthUser,
+  AuthSession,
+  SignUpCredentials,
+  SignInCredentials,
+  AuthResponse,
+  PKCECodePair,
+  AuthOptions,
+  RLSPolicies,
+  Profile
+} from './auth'
 
 // Additional shared types
 export type ErrorResponse = {
@@ -54,8 +66,6 @@ export function assertIsSuccess<T>(obj: unknown): asserts obj is SuccessResponse
     throw new Error('Expected a success response')
   }
 }
-
-export type UserRole = 'customer' | 'employee' | 'admin'
 
 export interface User {
   id: string

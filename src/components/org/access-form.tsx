@@ -19,7 +19,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { useToast } from '@/hooks/use-toast'
-import { joinOrganizationAction } from '@/app/(org)/(org-auth)/access/actions'
+import { joinAction } from '@/app/org/(routes)/org-auth/access/actions'
 import { useAuth } from '@/hooks/use-auth'
 
 const accessSchema = z.object({
@@ -51,7 +51,7 @@ export function OrgAccessForm() {
       formData.append('organizationId', data.organizationId)
       formData.append('role', data.role)
       
-      const result = await joinOrganizationAction(formData)
+      const result = await joinAction(formData)
 
       if (result?.error) {
         console.error('Join organization error:', result.error)

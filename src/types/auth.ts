@@ -116,4 +116,11 @@ export interface AuthOptions {
   captchaToken?: string
   codeChallenge?: string
   codeChallengeMethod?: 'S256'
+}
+
+export type RLSPolicies = {
+  canReadTicket: (userId: string, ticketId: string) => Promise<boolean>
+  canCreateTicket: (userId: string) => Promise<boolean>
+  canUpdateTicket: (userId: string, ticketId: string) => Promise<boolean>
+  canDeleteTicket: (userId: string, ticketId: string) => Promise<boolean>
 } 

@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { useToast } from '@/hooks/use-toast'
-import { registerOrganizationAction } from '@/app/(org)/org/register/actions'
+import { registerAction } from '@/app/org/(routes)/org-auth/register/actions'
 
 const registrationSchema = z.object({
   name: z.string().min(2, 'Organization name must be at least 2 characters'),
@@ -45,7 +45,7 @@ export function OrgRegistrationForm() {
       const formData = new FormData()
       formData.append('name', data.name)
       
-      const result = await registerOrganizationAction(formData)
+      const result = await registerAction(formData)
 
       if (result?.error) {
         console.error('Registration error:', result.error)
@@ -57,7 +57,7 @@ export function OrgRegistrationForm() {
         return
       }
 
-      if (!result.organizationId) {
+      if (!result.success || !result.organizationId) {
         toast({
           variant: 'destructive',
           title: 'Error',

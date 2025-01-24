@@ -57,7 +57,7 @@ export function SupabaseAuthProvider({ children }: { children: React.ReactNode }
             }
           }
 
-          if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+          if (event === 'SIGNED_OUT') {
             console.log('Handling sign out event')
             setUser(null)
             // Clear storage

@@ -59,7 +59,7 @@ This checklist outlines the implementation of customer-facing ticket functionali
   - Implement confirmation dialog
   - Handle post-closure state
 
-## 6. Integration & Navigation
+## 6. Integration & Notifications
 - [ ] Update customer navigation
   - Show ticket counts/notifications
   - Add breadcrumb navigation
