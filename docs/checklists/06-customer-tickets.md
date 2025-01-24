@@ -24,40 +24,38 @@ This checklist outlines the implementation of customer-facing ticket functionali
   - Add real-time updates for ticket changes
 
 ## 3. Ticket Creation Flow
-- [ ] Implement organization selection
+- [x] Implement organization selection
   - Fetch list of available organizations
   - Create organization selector UI
   - Store selected organization as handling_org_id
-- [ ] Implement ticket creation form
+- [x] Implement ticket creation form
   - Add subject, description, priority fields
   - Add file attachment support
   - Add validation and error handling
   - Implement draft saving
-- [ ] Add success/error notifications
+- [x] Add success/error notifications
   - Show confirmation on ticket creation
   - Display validation errors
   - Handle submission errors gracefully
 
 ## 4. Ticket Details View
-- [ ] Create customer ticket details page
+- [x] Create customer ticket details page
   - Mirror org/ticket/[id] layout
   - Show ticket status and metadata
   - Display ticket history
 - [ ] Implement messaging interface
-  - Reuse ticket-conversation component
+  - Reuse ticket-messages component
   - Add customer-specific message styling
   - Support rich text editing
-  - Enable file attachments
+  - Enable image, link, markdown
 - [ ] Add real-time updates
   - Update messages in real-time
   - Show typing indicators
   - Update ticket status changes
+- [ ] Display ticket update history in ticket details
+    - Things like "Ticket was set to in-progress by John Doe"
 
-## 5. Ticket Update Functionality
-- [ ] Allow status updates (if permitted)
-  - Add status change UI
-  - Implement status update logic
-  - Add validation for allowed status changes
+## 5. Ticket Closure Functionality
 - [ ] Enable ticket closure
   - Add close ticket option
   - Implement confirmation dialog
@@ -65,7 +63,6 @@ This checklist outlines the implementation of customer-facing ticket functionali
 
 ## 6. Integration & Navigation
 - [ ] Update customer navigation
-  - Add tickets section to nav menu
   - Show ticket counts/notifications
   - Add breadcrumb navigation
 - [ ] Implement deep linking

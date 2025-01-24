@@ -139,6 +139,8 @@ CREATE TABLE IF NOT EXISTS public.internal_notes (
 CREATE INDEX IF NOT EXISTS idx_profiles_org_id ON public.profiles(org_id);
 CREATE INDEX IF NOT EXISTS idx_teams_org_id ON public.teams(org_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_handling_org_id ON public.tickets(handling_org_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_user_id ON public.tickets(user_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_created_at ON public.tickets(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_parent_id ON public.ticket_messages(parent_message_id);
 CREATE INDEX IF NOT EXISTS idx_ticket_messages_template_id ON public.ticket_messages(template_id);
 CREATE INDEX IF NOT EXISTS idx_templates_org_id ON public.ticket_message_templates(org_id);
@@ -277,13 +279,58 @@ CREATE POLICY "Users can view their organization's teams"
   );
 
 -- Ticket Policies
-CREATE POLICY "Organization employees can view assigned tickets"
+CREATE POLICY "Customers can view their own tickets"
   ON tickets FOR SELECT
+  TO authenticated
   USING (
-    handling_org_id IN (
-      SELECT org_id FROM profiles WHERE user_id = auth.uid()
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.role = 'customer'
     )
-    OR user_id = auth.uid()
+  );
+
+CREATE POLICY "Customers can create tickets"
+  ON tickets FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.role = 'customer'
+    )
+  );
+
+CREATE POLICY "Customers can update their own tickets"
+  ON tickets FOR UPDATE
+  TO authenticated
+  USING (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.role = 'customer'
+    )
+  )
+  WITH CHECK (
+    auth.uid() = user_id
+    AND EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.role = 'customer'
+    )
+    -- Only allow updating status to 'closed' or keeping it unchanged
+    AND (
+      tickets.status = 'closed' -- Allow setting to closed
+      OR tickets.status = (SELECT status FROM tickets WHERE id = tickets.id) -- Or keep unchanged
+    )
+    -- These fields must remain unchanged
+    AND handling_org_id = (SELECT handling_org_id FROM tickets WHERE id = tickets.id)
+    AND assigned_team = (SELECT assigned_team FROM tickets WHERE id = tickets.id)
+    AND assigned_employee = (SELECT assigned_employee FROM tickets WHERE id = tickets.id)
+    AND priority = (SELECT priority FROM tickets WHERE id = tickets.id)
   );
 
 CREATE POLICY "Admins and employees can update tickets"
@@ -418,6 +465,19 @@ CREATE POLICY "Author or admin can update internal notes"
     )
   );
 
+CREATE POLICY "Author or admin can delete internal notes"
+  ON internal_notes FOR DELETE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM tickets t
+      JOIN profiles p ON p.user_id = auth.uid()
+      WHERE t.id = internal_notes.ticket_id
+      AND t.handling_org_id = p.org_id
+      AND (p.role = 'admin' OR auth.uid() = internal_notes.author_id)
+    )
+  );
+
 -- Grant access to authenticated users
 GRANT ALL ON public.organizations TO authenticated;
 GRANT ALL ON public.profiles TO authenticated;
@@ -429,12 +489,12 @@ GRANT ALL ON public.internal_notes TO authenticated;
 
 ------------------------------------------------------------------------
 -- The above schema covers:
---   - Organizations and their structure
---   - User profiles & roles with org context
---   - Team assignments within orgs
---   - Enhanced tickets with status and priority constraints
---   - Ticket messages with type constraints
---   - Message templates with org context
---   - Internal notes for employees/admins
---   - Comprehensive RLS policies for data access control
+-- 1. Multi-tenant organization support
+-- 2. Role-based access control (customers, employees, admins)
+-- 3. Team management within organizations
+-- 4. Ticket creation and management
+-- 5. Message threading and templates
+-- 6. Internal notes for employees/admins
+-- 7. Email integration support
+-- 8. Row Level Security policies
 ------------------------------------------------------------------------

@@ -11,16 +11,12 @@ import { Toggle } from '@/components/ui/toggle';
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Loader2, Send, Bold, Italic, Link2, Image as ImageIcon, List, Code, Quote } from 'lucide-react';
+import { Loader2, Send, Bold, Italic, Link2, Image as ImageIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { MessageType } from '@/types/tickets';
-import { useDebounce } from '@/hooks/use-debounce';
-import { TemplateSelector } from './template-selector';
 
-interface MessageComposerProps {
+interface CustomerMessageComposerProps {
   ticketId: string;
-  onSendMessage: (message: { body: string; messageType: MessageType }) => Promise<void>;
-  className?: string;
+  onSendMessage: (message: { body: string }) => Promise<void>;
   disabled?: boolean;
 }
 
@@ -32,55 +28,14 @@ interface LinkDialogProps {
   placeholder: string;
 }
 
-function InsertDialog({ open, onOpenChange, onSubmit, title, placeholder }: LinkDialogProps) {
-  const [url, setUrl] = useState('');
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    onSubmit(url);
-    setUrl('');
-    onOpenChange(false);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-        </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="url">URL</Label>
-            <Input
-              id="url"
-              placeholder={placeholder}
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-          </div>
-          <div className="flex justify-end">
-            <Button type="submit" disabled={!url.trim()}>Insert</Button>
-          </div>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-export function MessageComposer({ 
+export function CustomerMessageComposer({ 
   ticketId, 
   onSendMessage, 
-  className,
   disabled = false 
-}: MessageComposerProps) {
-  // Get draft key for this specific ticket
-  const getDraftKey = useCallback(() => `ticket-draft-${ticketId}`, [ticketId]);
-
+}: CustomerMessageComposerProps) {
   const [sending, setSending] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
-  const [draftContent, setDraftContent] = useState('');
-  const debouncedContent = useDebounce(draftContent, 1000);
 
   const editor = useEditor({
     extensions: [
@@ -92,16 +47,6 @@ export function MessageComposer({
         orderedList: {
           keepMarks: true,
           keepAttributes: false,
-        },
-        code: {
-          HTMLAttributes: {
-            class: 'rounded-md bg-muted px-[0.3rem] py-[0.2rem] font-mono font-semibold',
-          },
-        },
-        blockquote: {
-          HTMLAttributes: {
-            class: 'border-l-2 pl-4 italic',
-          },
         },
       }),
       LinkExtension.configure({
@@ -116,7 +61,7 @@ export function MessageComposer({
         },
       }),
       Placeholder.configure({
-        placeholder: 'Type your message... (Supports Markdown)',
+        placeholder: 'Type your message...',
         emptyEditorClass: 'cursor-text before:content-[attr(data-placeholder)] before:text-muted-foreground before:float-left before:h-0 before:pointer-events-none',
       }),
     ],
@@ -125,27 +70,7 @@ export function MessageComposer({
         class: 'prose prose-sm dark:prose-invert max-w-none min-h-[100px] px-3 py-2 focus:outline-none',
       },
     },
-    onUpdate: ({ editor }) => {
-      setDraftContent(editor.getHTML());
-    },
   });
-
-  // Load draft on mount
-  useEffect(() => {
-    if (!editor) return;
-    
-    const savedDraft = localStorage.getItem(getDraftKey());
-    if (savedDraft) {
-      editor.commands.setContent(savedDraft);
-    }
-  }, [editor, getDraftKey]);
-
-  // Save draft when content changes
-  useEffect(() => {
-    if (debouncedContent) {
-      localStorage.setItem(getDraftKey(), debouncedContent);
-    }
-  }, [debouncedContent, getDraftKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -164,16 +89,9 @@ export function MessageComposer({
     setSending(true);
 
     try {
-      await onSendMessage({
-        body: messageContent,
-        messageType: 'public'
-      });
-      
-      // Clear content and remove draft after successful send
+      await onSendMessage({ body: messageContent });
       editor.commands.clearContent();
       editor.commands.focus();
-      localStorage.removeItem(getDraftKey());
-      setDraftContent('');
     } catch (error) {
       console.error('Error sending message:', error);
     } finally {
@@ -183,10 +101,6 @@ export function MessageComposer({
 
   const insertImage = useCallback((url: string) => {
     if (!editor) return;
-    
-    // Prevent auto-submit when inserting image
-    setSending(false);
-    
     editor
       .chain()
       .focus()
@@ -196,11 +110,7 @@ export function MessageComposer({
 
   const setLink = useCallback((url: string) => {
     if (!editor) return;
-    
-    // Prevent auto-submit when inserting link
-    setSending(false);
 
-    // If there's no selection, create a new link
     if (editor.state.selection.empty) {
       editor
         .chain()
@@ -216,7 +126,6 @@ export function MessageComposer({
     }
   }, [editor]);
 
-  // Modify the keydown handler to be more robust
   useEffect(() => {
     if (!editor) return;
     
@@ -225,7 +134,6 @@ export function MessageComposer({
         e.preventDefault();
         e.stopPropagation();
         
-        // Create a synthetic event and call handleSubmit
         const syntheticEvent = new Event('submit', {
           bubbles: true,
           cancelable: true
@@ -243,21 +151,14 @@ export function MessageComposer({
     };
   }, [editor, handleSubmit]);
 
-  // Add cleanup on unmount
   useEffect(() => {
     return () => {
       setSending(false);
     };
   }, []);
 
-  const handleTemplateSelect = useCallback((template: { content: string }) => {
-    if (editor) {
-      editor.commands.setContent(template.content)
-    }
-  }, [editor])
-
   return (
-    <div className={cn('space-y-2', className)}>
+    <div className="space-y-2">
       <div className="flex items-center gap-1 border-b pb-2">
         <Toggle
           size="sm"
@@ -276,33 +177,6 @@ export function MessageComposer({
           aria-label="Italic"
         >
           <Italic className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor?.isActive('bulletList')}
-          onPressedChange={() => editor?.chain().focus().toggleBulletList().run()}
-          disabled={disabled}
-          aria-label="Bullet List"
-        >
-          <List className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor?.isActive('code')}
-          onPressedChange={() => editor?.chain().focus().toggleCode().run()}
-          disabled={disabled}
-          aria-label="Code"
-        >
-          <Code className="h-4 w-4" />
-        </Toggle>
-        <Toggle
-          size="sm"
-          pressed={editor?.isActive('blockquote')}
-          onPressedChange={() => editor?.chain().focus().toggleBlockquote().run()}
-          disabled={disabled}
-          aria-label="Quote"
-        >
-          <Quote className="h-4 w-4" />
         </Toggle>
         <Dialog open={showLinkDialog} onOpenChange={setShowLinkDialog}>
           <DialogContent>
@@ -409,16 +283,8 @@ export function MessageComposer({
             </Toggle>
           </DialogTrigger>
         </Dialog>
-        <div className="ml-auto">
-          <TemplateSelector onSelectTemplate={handleTemplateSelect} />
-        </div>
       </div>
       <EditorContent editor={editor} disabled={disabled} />
-      {draftContent && (
-        <div className="px-3 py-1 text-xs text-muted-foreground border-t">
-          Draft saved
-        </div>
-      )}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="flex justify-end">
           <Button 

@@ -371,7 +371,7 @@ export default function TicketDetailPage() {
         .replace(/javascript:/gi, '') // Remove potential javascript: URLs
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''); // Remove script tags
 
-      const { error } = await supabase
+      const { data: messageData, error } = await supabase
         .from('ticket_messages')
         .insert({
           ticket_id: ticket.id,
@@ -379,12 +379,35 @@ export default function TicketDetailPage() {
           body: sanitizedBody,
           message_type: messageType,
           source: 'web'
-        });
+        })
+        .select(`
+          *,
+          author:profiles(display_name, role)
+        `)
+        .single();
 
       if (error) throw error;
 
-      // Refetch ticket to get updated messages
-      await fetchTicket(ticket.id);
+      if (!messageData) return;
+
+      const newMessage = {
+        ...messageData,
+        author: messageData.author?.[0],
+        author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
+        message_type: messageData.message_type as MessageType,
+        source: messageData.source as 'web' | 'email' | 'api'
+      } satisfies TicketMessage;
+
+      // Update the ticket state with the new message
+      setTicket(prev => {
+        if (!prev) return prev;
+        const messages = prev.messages || [];
+        // Add new message to the beginning since messages are sorted by created_at DESC
+        return {
+          ...prev,
+          messages: [newMessage, ...messages]
+        };
+      });
 
       toast({
         title: 'Message sent',
@@ -397,6 +420,7 @@ export default function TicketDetailPage() {
         description: error?.message || 'There was an error sending your message. Please try again.',
         variant: 'destructive',
       });
+      throw error; // Re-throw to let the composer know it failed
     }
   };
 
@@ -473,15 +497,89 @@ export default function TicketDetailPage() {
         },
         async (payload) => {
           console.log('Message change received:', payload);
-          // Refetch ticket to get updated messages
-          if (params.id) {
-            await fetchTicket(params.id as string);
+          
+          if (payload.eventType === 'INSERT') {
+            // Fetch the complete message with author details
+            const { data: messageData } = await supabase
+              .from('ticket_messages')
+              .select(`
+                *,
+                author:profiles(display_name, role)
+              `)
+              .eq('id', payload.new.id)
+              .single();
+
+            if (!messageData) return;
+
+            const newMessage = {
+              ...messageData,
+              author: messageData.author?.[0],
+              author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
+              message_type: messageData.message_type as MessageType,
+              source: messageData.source as 'web' | 'email' | 'api'
+            } satisfies TicketMessage;
+
+            setTicket(prev => {
+              if (!prev) return prev;
+              const messages = prev.messages || [];
+              // Add new message to the beginning since messages are sorted by created_at DESC
+              return {
+                ...prev,
+                messages: [newMessage, ...messages]
+              };
+            });
+          } 
+          else if (payload.eventType === 'UPDATE') {
+            // Fetch updated message with author details
+            const { data: messageData } = await supabase
+              .from('ticket_messages')
+              .select(`
+                *,
+                author:profiles(display_name, role)
+              `)
+              .eq('id', payload.new.id)
+              .single();
+
+            if (!messageData) return;
+
+            const updatedMessage = {
+              ...messageData,
+              author: messageData.author?.[0],
+              author_role: messageData.author_role as 'customer' | 'employee' | 'admin',
+              message_type: messageData.message_type as MessageType,
+              source: messageData.source as 'web' | 'email' | 'api'
+            } satisfies TicketMessage;
+
+            setTicket(prev => {
+              if (!prev) return prev;
+              const messages = prev.messages || [];
+              return {
+                ...prev,
+                messages: messages.map(msg => 
+                  msg.id === updatedMessage.id ? updatedMessage : msg
+                )
+              };
+            });
+          }
+          else if (payload.eventType === 'DELETE') {
+            const deletedMessageId = payload.old.id;
+            setTicket(prev => {
+              if (!prev) return prev;
+              const messages = prev.messages || [];
+              return {
+                ...prev,
+                messages: messages.filter(msg => msg.id !== deletedMessageId)
+              };
+            });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log('Message subscription status:', status);
+      });
 
     return () => {
+      console.log('Cleaning up message subscription');
       supabase.removeChannel(channel);
     };
   }, [ticket?.id, supabase]);

@@ -251,4 +251,28 @@ export async function getCustomerTicketStats(userId: string) {
     inProgress: data.filter(t => t.status === 'in-progress').length,
     closed: data.filter(t => t.status === 'closed').length
   }
+}
+
+/**
+ * Create a new ticket message
+ */
+export async function createCustomerTicketMessage(data: {
+  ticketId: string
+  userId: string
+  content: string
+}) {
+  const supabase = createServiceClient()
+
+  const { error } = await supabase
+    .from('ticket_messages')
+    .insert({
+      ticket_id: data.ticketId,
+      body: data.content,
+      author_id: data.userId,
+      message_type: 'public',
+    })
+
+  if (error) {
+    throw new Error(`Failed to create message: ${error.message}`)
+  }
 } 
