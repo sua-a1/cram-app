@@ -353,12 +353,17 @@ export default function TicketDetailPage() {
     try {
       if (!ticket || !user) return;
 
+      // Sanitize HTML content
+      const sanitizedBody = body
+        .replace(/javascript:/gi, '') // Remove potential javascript: URLs
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, ''); // Remove script tags
+
       const { error } = await supabase
         .from('ticket_messages')
         .insert({
           ticket_id: ticket.id,
           author_id: user.id,
-          body,
+          body: sanitizedBody,
           message_type: messageType,
           source: 'web'
         });

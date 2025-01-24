@@ -74,10 +74,15 @@ function MessageItem({ message, isCurrentUser }: MessageItemProps) {
 
         <div className={cn(
           'rounded-lg p-3 group-hover:pr-8',
-          isCurrentUser ? 'bg-primary text-primary-foreground' : 'bg-muted',
+          isCurrentUser 
+            ? 'bg-primary text-primary-foreground [&_.prose]:text-primary-foreground [&_.prose_a]:text-primary-foreground [&_.prose_strong]:text-primary-foreground [&_.prose_img]:max-w-full [&_.prose_img]:rounded-md' 
+            : 'bg-muted [&_.prose]:text-foreground [&_.prose_img]:max-w-full [&_.prose_img]:rounded-md',
           message.message_type === 'internal' && 'border-2 border-yellow-500'
         )}>
-          <p className="text-sm whitespace-pre-wrap">{message.body}</p>
+          <div 
+            className="prose prose-sm dark:prose-invert max-w-none [&>:first-child]:mt-0 [&>:last-child]:mb-0 [&_img]:!my-2 [&_img]:inline-block [&_img]:!max-h-[300px] [&_img]:object-contain"
+            dangerouslySetInnerHTML={{ __html: message.body }} 
+          />
           <HoverCard>
             <HoverCardTrigger asChild>
               <button className={cn(
