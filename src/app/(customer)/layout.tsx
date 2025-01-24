@@ -46,12 +46,6 @@ export default async function CustomerLayout({
                   Dashboard
                 </Link>
               </Button>
-              <Button variant="ghost" asChild>
-                <Link href="/tickets">
-                  <Ticket className="mr-2 h-4 w-4" />
-                  My Tickets
-                </Link>
-              </Button>
             </nav>
           </div>
           <div className="flex items-center gap-4">

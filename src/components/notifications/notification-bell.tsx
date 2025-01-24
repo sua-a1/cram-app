@@ -130,15 +130,6 @@ export function NotificationBell() {
                 description: newNotification.message,
               });
 
-              // Play notification sound (optional)
-              const audio = new Audio('/sounds/notification.mp3');
-              audio.volume = 0.5;
-              try {
-                await audio.play();
-              } catch (error) {
-                console.log('Audio play failed:', error);
-              }
-
               // Add to beginning of list and maintain limit
               setNotifications(prev => [newNotification, ...prev]);
               setUnreadCount(prev => prev + 1);
@@ -229,13 +220,8 @@ export function NotificationBell() {
         setUnreadCount(prev => Math.max(0, prev - 1));
       }
 
-      // Navigate based on notification type
-      if (notification.type === 'new_message' && notification.message_id) {
-        router.push(`/org/tickets/${notification.ticket_id}?message=${notification.message_id}`);
-      } else {
-        router.push(`/org/tickets/${notification.ticket_id}`);
-      }
-
+      // Navigate to ticket page for all notification types
+      router.push(`/tickets/${notification.ticket_id}`);
       setOpen(false);
     } catch (error: any) {
       console.error('Error handling notification click:', error);

@@ -41,6 +41,8 @@
    - Implemented infinite scroll pagination
    - Added loading states and error handling
    - Integrated toast notifications for new messages
+   - Removed unused audio notification feature
+   - Simplified navigation to always go to ticket page without message parameters
 
 4. State Management:
    - Implemented real-time subscription in NotificationBell
