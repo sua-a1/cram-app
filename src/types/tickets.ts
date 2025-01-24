@@ -1,4 +1,5 @@
 import { Database, Json } from './supabase';
+import type { Profile } from '@/types/profiles';
 
 // Base types from database
 export type DBTicket = Database['public']['Tables']['tickets']['Row'];
@@ -176,4 +177,22 @@ export interface TicketTemplateData {
 }
 
 // Utility type for ticket selection state
-export type SelectedTickets = Record<string, boolean>; 
+export type SelectedTickets = Record<string, boolean>;
+
+export type InternalNote = {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  author_name: string;
+  author_email: string;
+  author_role: 'employee' | 'admin';
+  content: string;
+  related_ticket_message_id?: string;
+  created_at: string;
+  updated_at: string;
+  author?: Profile; // Join with profiles table for additional profile info
+};
+
+export type InternalNoteWithMessage = InternalNote & {
+  related_message?: TicketMessage;
+}; 

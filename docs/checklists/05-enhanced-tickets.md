@@ -11,6 +11,9 @@ This checklist outlines the implementation of enhanced ticket features including
   - Add `metadata` JSONB field for additional message data
   - Add `template_id` reference to ticket_message_templates (optional)
   - Add `parent_message_id` for threaded conversations
+- [x] Create `internal_notes` table
+  - Fields: id, ticket_id, author_id, author_name, author_email, author_role, content, related_ticket_message_id, created_at, updated_at
+  - Add RLS policies for employee/admin access
 
 ## 2. Bulk Operations Implementation
 - [x] Create bulk operations server actions
@@ -28,11 +31,11 @@ This checklist outlines the implementation of enhanced ticket features including
   - [x] Implement message thread view
   - [x] Add message type indicators (customer, internal, email)
   - [x] Add timestamp and author info
-- [ ] Build message composition interface
+- [x] Build message composition interface
   - [x] Implement rich text editor integration
-  - [ ] Add file attachment support
-  - [ ] Create template/macro selector
-  - [ ] Add internal note toggle
+  - [] Add file attachment support
+  - [x] Create template/macro selector
+  - [] Add internal note toggle
 
 ## 4. Rich Text Editing
 - [x] Set up TipTap editor integration
@@ -42,36 +45,42 @@ This checklist outlines the implementation of enhanced ticket features including
 - [x] Add draft saving functionality
 
 ## 5. Quick Response Templates
-- [ ] Build template management interface
-  - [ ] Create template CRUD operations
-  - [ ] Add template categories/tags
-  - [ ] Implement template search
-- [ ] Create template insertion UI
-  - [ ] Add template preview
-  - [ ] Implement variable substitution
-  - [ ] Add recently used templates section
+- [x] Build template management interface
+  - [x] Create template CRUD operations
+  - [x] Implement real-time updates
+  - [x] Implement template search in insertion UI
+- [x] Create template insertion UI
+  - [x] Add template preview
+  - [x] Add recently used templates section
 
 ## 6. Internal Notes System
-- [ ] Enhance ticket view for internal notes
-  - [ ] Add internal notes section
-  - [ ] Create note filtering options
-  - [ ] Implement note search
-- [ ] Build internal note composer
-  - [ ] Add visibility controls
-  - [ ] Implement @mentions
-  - [ ] Add notification system
+- [x] Database Setup
+  - [x] Create internal_notes table
+  - [x] Add RLS policies
+  - [x] Add TypeScript types
+- [ ] UI Components
+  - [x] Create menubar interface for switching views
+  - [x] Implement MessageList with margin notes
+    - [x] Create InternalNoteMargin component
+    - [x] Add hover/focus interactions
+    - [x] Add "Go to Note" functionality
+  - [x] Build InternalNotesList component
+    - [x] Create note card component
+    - [x] Add pagination
+    - [x] Add "Go to Message" functionality
+  - [x] Create InternalNoteComposer
+- [x] Server Actions & Data Flow
+  - [x] Create note creation/update actions
+  - [x] Add real-time updates
+  - [x] Implement note deletion
+  - [x] Add error handling
+- [ ] Integration & Testing
+  - [ ] Test note creation flow
+  - [ ] Test message linking
+  - [ ] Test navigation between views
+  - [ ] Verify RLS policies
 
-## 7. Email Integration
-- [ ] Set up email sending functionality
-  - [ ] Configure email service integration
-  - [ ] Create email templates
-  - [ ] Implement email tracking
-- [ ] Build email receiving system
-  - [ ] Set up email webhook
-  - [ ] Create email to ticket conversion
-  - [ ] Implement email threading
-
-## 8. Testing & Documentation
+## 7. Testing & Documentation
 - [ ] Write tests for new functionality
   - [ ] Unit tests for bulk operations
   - [ ] Integration tests for messaging
@@ -81,13 +90,13 @@ This checklist outlines the implementation of enhanced ticket features including
   - [ ] User guides
   - [ ] Developer documentation
 
-## 9. Performance & Security
+## 8. Performance & Security
 - [ ] Implement caching for templates
 - [ ] Add rate limiting for bulk operations
 - [ ] Review and update RLS policies
 - [ ] Add audit logging for sensitive operations
 
-## 10. Deployment & Monitoring
+## 9. Deployment & Monitoring
 - [ ] Create database migrations
 - [ ] Set up monitoring for new features
 - [ ] Add error tracking

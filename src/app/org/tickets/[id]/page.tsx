@@ -19,12 +19,21 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { ChevronLeft, Loader2 } from 'lucide-react';
+import { ChevronLeft, Loader2, MessageSquare, FileText, Search, Filter, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { TicketMessages } from '@/components/tickets/ticket-messages';
 import { MessageComposer } from '@/components/tickets/message-composer';
+import {
+  Menubar,
+  MenubarContent,
+  MenubarItem,
+  MenubarMenu,
+  MenubarSeparator,
+  MenubarShortcut,
+  MenubarTrigger,
+} from "@/components/ui/menubar";
 
 const TICKET_STATUS_OPTIONS: TicketStatus[] = ['open', 'in-progress', 'closed'];
 const TICKET_PRIORITY_OPTIONS: TicketPriority[] = ['low', 'medium', 'high'];
@@ -51,6 +60,7 @@ export default function TicketDetailPage() {
   const router = useRouter();
   const { user, supabase } = useAuth();
   const { toast } = useToast();
+  const [currentView, setCurrentView] = useState<"messages" | "notes">("messages");
 
   // Function to handle navigation
   const handleNavigation = (path: string) => {
@@ -513,192 +523,264 @@ export default function TicketDetailPage() {
   }
 
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="flex items-center gap-4">
-        <Button
-          variant="ghost"
-          onClick={() => handleNavigation('/org/dashboard')}
-          className="gap-2"
-        >
-          <ChevronLeft className="h-4 w-4" />
-          Back to Dashboard
-        </Button>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center p-6">
-          <Loader2 className="h-6 w-6 animate-spin" />
+    <div className="flex flex-col h-full">
+      <div className="container mx-auto py-6 space-y-6">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            onClick={() => handleNavigation('/org/dashboard')}
+            className="gap-2"
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Button>
         </div>
-      ) : ticket ? (
-        <div className="space-y-6">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-              <CardTitle className="text-2xl font-bold">Ticket Details</CardTitle>
-              <div className="flex items-center gap-2">
-                {!isEditing ? (
-                  <Button onClick={handleStartEdit}>Edit Ticket</Button>
-                ) : (
-                  <>
-                    <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
-                    <Button onClick={handleSaveChanges} disabled={saving}>
-                      {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Changes
-                    </Button>
-                  </>
-                )}
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="subject">Subject</Label>
-                {isEditing ? (
-                  <Input
-                    id="subject"
-                    value={editedTicket?.subject}
-                    onChange={(e) => setEditedTicket(prev => prev ? { ...prev, subject: e.target.value } : null)}
-                  />
-                ) : (
-                  <p className="text-lg font-medium">{ticket?.subject}</p>
-                )}
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                {isEditing ? (
-                  <Textarea
-                    id="description"
-                    value={editedTicket?.description || ''}
-                    onChange={(e) => setEditedTicket(prev => prev ? { ...prev, description: e.target.value } : null)}
-                    className="min-h-[100px]"
-                  />
-                ) : (
-                  <p className="text-muted-foreground whitespace-pre-wrap">{ticket?.description || 'No description provided.'}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="status">Status</Label>
-                  {isEditing ? (
-                    <Select
-                      value={editedTicket?.status}
-                      onValueChange={(value: TicketStatus) => setEditedTicket(prev => prev ? { ...prev, status: value } : null)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TICKET_STATUS_OPTIONS.map((status) => (
-                          <SelectItem key={status} value={status}>
-                            {STATUS_STYLES[status].label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+        {loading ? (
+          <div className="flex items-center justify-center p-6">
+            <Loader2 className="h-6 w-6 animate-spin" />
+          </div>
+        ) : ticket ? (
+          <div className="space-y-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+                <CardTitle className="text-2xl font-bold">Ticket Details</CardTitle>
+                <div className="flex items-center gap-2">
+                  {!isEditing ? (
+                    <Button onClick={handleStartEdit}>Edit Ticket</Button>
                   ) : (
-                    <div className="mt-1.5">
-                    <Badge variant={STATUS_STYLES[ticket?.status as TicketStatus]?.variant}>
-                      {STATUS_STYLES[ticket?.status as TicketStatus]?.label}
-                    </Badge>
-                    </div>
+                    <>
+                      <Button variant="outline" onClick={handleCancelEdit}>Cancel</Button>
+                      <Button onClick={handleSaveChanges} disabled={saving}>
+                        {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Save Changes
+                      </Button>
+                    </>
+                  )}
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="subject">Subject</Label>
+                  {isEditing ? (
+                    <Input
+                      id="subject"
+                      value={editedTicket?.subject}
+                      onChange={(e) => setEditedTicket(prev => prev ? { ...prev, subject: e.target.value } : null)}
+                    />
+                  ) : (
+                    <p className="text-lg font-medium">{ticket?.subject}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="priority">Priority</Label>
+                  <Label htmlFor="description">Description</Label>
                   {isEditing ? (
-                    <Select
-                      value={editedTicket?.priority}
-                      onValueChange={(value: TicketPriority) => setEditedTicket(prev => prev ? { ...prev, priority: value } : null)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {TICKET_PRIORITY_OPTIONS.map((priority) => (
-                          <SelectItem key={priority} value={priority}>
-                            {PRIORITY_STYLES[priority].label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Textarea
+                      id="description"
+                      value={editedTicket?.description || ''}
+                      onChange={(e) => setEditedTicket(prev => prev ? { ...prev, description: e.target.value } : null)}
+                      className="min-h-[100px]"
+                    />
                   ) : (
-                    <div className="mt-1.5">
-                    <Badge variant={PRIORITY_STYLES[ticket?.priority as TicketPriority]?.variant}>
-                      {PRIORITY_STYLES[ticket?.priority as TicketPriority]?.label}
-                    </Badge>
-                    </div>
+                    <p className="text-muted-foreground whitespace-pre-wrap">{ticket?.description || 'No description provided.'}</p>
                   )}
                 </div>
-              </div>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <h3 className="font-semibold">Assignment</h3>
                 <div className="grid grid-cols-2 gap-4">
-                  {ticket?.assigned_team_details && (
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Team</Label>
-                      <p>{ticket.assigned_team_details.name}</p>
-                    </div>
-                  )}
-                  {ticket?.assigned_employee_details && (
-                    <div>
-                      <Label className="text-sm text-muted-foreground">Assigned to</Label>
-                      <p>{ticket.assigned_employee_details.display_name}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="status">Status</Label>
+                    {isEditing ? (
+                      <Select
+                        value={editedTicket?.status}
+                        onValueChange={(value: TicketStatus) => setEditedTicket(prev => prev ? { ...prev, status: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TICKET_STATUS_OPTIONS.map((status) => (
+                            <SelectItem key={status} value={status}>
+                              {STATUS_STYLES[status].label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="mt-1.5">
+                      <Badge variant={STATUS_STYLES[ticket?.status as TicketStatus]?.variant}>
+                        {STATUS_STYLES[ticket?.status as TicketStatus]?.label}
+                      </Badge>
+                      </div>
+                    )}
+                  </div>
 
-              <Separator />
-
-              <div className="space-y-2">
-                <Label className="text-sm text-muted-foreground">Created by</Label>
-                <p>{ticket?.creator?.display_name || 'Unknown'}</p>
-                <div className="text-sm text-muted-foreground">
-                  Created: {ticket?.created_at && new Date(ticket.created_at).toLocaleString()}
-                  {ticket?.updated_at && ticket.updated_at !== ticket.created_at && (
-                    <> · Updated: {new Date(ticket.updated_at).toLocaleString()}</>
-                  )}
+                  <div className="space-y-2">
+                    <Label htmlFor="priority">Priority</Label>
+                    {isEditing ? (
+                      <Select
+                        value={editedTicket?.priority}
+                        onValueChange={(value: TicketPriority) => setEditedTicket(prev => prev ? { ...prev, priority: value } : null)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {TICKET_PRIORITY_OPTIONS.map((priority) => (
+                            <SelectItem key={priority} value={priority}>
+                              {PRIORITY_STYLES[priority].label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    ) : (
+                      <div className="mt-1.5">
+                      <Badge variant={PRIORITY_STYLES[ticket?.priority as TicketPriority]?.variant}>
+                        {PRIORITY_STYLES[ticket?.priority as TicketPriority]?.label}
+                      </Badge>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
 
-          {/* Add Messages Section */}
-          <div className="space-y-4">
-            <h2 className="text-xl font-semibold">Messages</h2>
-            {ticket.messages && ticket.messages.length > 0 ? (
-              <TicketMessages
-                messages={ticket.messages}
-                currentUserId={user?.id || ''}
-                onSendMessage={handleSendMessage}
-                disabled={!user || ticket.status === 'closed'}
-                className="min-h-[400px]"
-              />
-            ) : (
-              <Card>
-                <div className="p-6 text-center text-muted-foreground">
-                  No messages yet.
+                <Separator />
+
+                <div className="space-y-2">
+                  <h3 className="font-semibold">Assignment</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    {ticket?.assigned_team_details && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Team</Label>
+                        <p>{ticket.assigned_team_details.name}</p>
+                      </div>
+                    )}
+                    {ticket?.assigned_employee_details && (
+                      <div>
+                        <Label className="text-sm text-muted-foreground">Assigned to</Label>
+                        <p>{ticket.assigned_employee_details.display_name}</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="p-4 border-t">
-                  <MessageComposer
-                    ticketId={ticket.id}
+
+                <Separator />
+
+                <div className="space-y-2">
+                  <Label className="text-sm text-muted-foreground">Created by</Label>
+                  <p>{ticket?.creator?.display_name || 'Unknown'}</p>
+                  <div className="text-sm text-muted-foreground">
+                    Created: {ticket?.created_at && new Date(ticket.created_at).toLocaleString()}
+                    {ticket?.updated_at && ticket.updated_at !== ticket.created_at && (
+                      <> · Updated: {new Date(ticket.updated_at).toLocaleString()}</>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Messages Section */}
+            <div className="space-y-4">
+              <Card className="flex flex-col h-[600px]">
+                <Menubar className="rounded-none border-t border-b">
+                  <MenubarMenu>
+                    <MenubarTrigger className="font-semibold">
+                      {currentView === "messages" ? (
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                      ) : (
+                        <FileText className="w-4 h-4 mr-2" />
+                      )}
+                      {currentView === "messages" ? "Messages" : "Internal Notes"}
+                    </MenubarTrigger>
+                    <MenubarContent>
+                      <MenubarItem 
+                        onClick={() => setCurrentView("messages")}
+                        className={currentView === "messages" ? "bg-accent" : ""}
+                      >
+                        <MessageSquare className="w-4 h-4 mr-2" />
+                        Messages
+                        <MenubarShortcut>⌘1</MenubarShortcut>
+                      </MenubarItem>
+                      <MenubarItem 
+                        onClick={() => setCurrentView("notes")}
+                        className={currentView === "notes" ? "bg-accent" : ""}
+                      >
+                        <FileText className="w-4 h-4 mr-2" />
+                        Internal Notes
+                        <MenubarShortcut>⌘2</MenubarShortcut>
+                      </MenubarItem>
+                    </MenubarContent>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <MenubarTrigger>
+                      <Filter className="w-4 h-4 mr-2" />
+                      Filter
+                    </MenubarTrigger>
+                    <MenubarContent>
+                      <MenubarItem>Show All</MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem>Only Customer Messages</MenubarItem>
+                      <MenubarItem>Only Internal Notes</MenubarItem>
+                      <MenubarItem>Only System Messages</MenubarItem>
+                    </MenubarContent>
+                  </MenubarMenu>
+
+                  <MenubarMenu>
+                    <MenubarTrigger>
+                      <Search className="w-4 h-4 mr-2" />
+                      Search
+                    </MenubarTrigger>
+                    <MenubarContent>
+                      <MenubarItem>Search Messages</MenubarItem>
+                      <MenubarItem>Search Notes</MenubarItem>
+                      <MenubarSeparator />
+                      <MenubarItem>Advanced Search</MenubarItem>
+                    </MenubarContent>
+                  </MenubarMenu>
+
+                  <div className="ml-auto flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setCurrentView(currentView === "messages" ? "notes" : "messages")}
+                    >
+                      {currentView === "messages" ? "Switch to Notes" : "Switch to Messages"}
+                    </Button>
+                  </div>
+                </Menubar>
+
+                {ticket.messages && ticket.messages.length > 0 ? (
+                  <TicketMessages
+                    messages={ticket.messages || []}
+                    currentUserId={user?.id || ''}
                     onSendMessage={handleSendMessage}
                     disabled={!user || ticket.status === 'closed'}
+                    currentView={currentView}
+                    onGoToNote={(view) => setCurrentView(view)}
                   />
-                </div>
+                ) : (
+                  <>
+                    <div className="flex-1 p-6 text-center text-muted-foreground">
+                      No messages yet.
+                    </div>
+                    <div className="p-4 border-t">
+                      <MessageComposer
+                        ticketId={ticket.id}
+                        onSendMessage={handleSendMessage}
+                        disabled={!user || ticket.status === 'closed'}
+                      />
+                    </div>
+                  </>
+                )}
               </Card>
-            )}
+            </div>
           </div>
-        </div>
-      ) : (
-        <div className="text-center p-6">
-          <p>Ticket not found.</p>
-        </div>
-      )}
+        ) : (
+          <div className="text-center p-6">
+            <p>Ticket not found.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 } 
