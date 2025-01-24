@@ -26,6 +26,7 @@ interface TicketMessagesProps {
   disabled?: boolean;
   onGoToNote?: (noteId: string) => void;
   currentView?: 'messages' | 'notes';
+  onViewChange?: (view: 'messages' | 'notes') => void;
 }
 
 interface MessageItemProps {
@@ -427,7 +428,8 @@ export function TicketMessages({
   className,
   disabled = false,
   onGoToNote,
-  currentView = 'messages'
+  currentView = 'messages',
+  onViewChange
 }: TicketMessagesProps) {
   const [notes, setNotes] = useState<InternalNoteWithMessage[]>([]);
   const [noteContent, setNoteContent] = useState('');
@@ -471,12 +473,12 @@ export function TicketMessages({
   const handleViewMessage = (note: InternalNoteWithMessage) => {
     if (note.related_ticket_message_id) {
       setTargetMessageId(note.related_ticket_message_id);
-      onGoToNote?.('messages');
+      onViewChange?.('messages');
     }
   };
 
   const handleViewDetails = (noteId: string) => {
-    onGoToNote?.('notes');
+    onViewChange?.('notes');
     // After view switch, scroll to note
     setTimeout(() => {
       scrollToElement(`note-${noteId}`);

@@ -1,5 +1,8 @@
-import { Database, Json } from './supabase';
+import type { Database } from './database.types'
+import { Json } from './supabase';
 import type { Profile } from '@/types/profiles';
+import type { Team } from '@/types/teams';
+import type { Organization } from '@/types/organizations';
 
 // Base types from database
 export type DBTicket = Database['public']['Tables']['tickets']['Row'];
@@ -23,8 +26,8 @@ export type DBTicketMessage = {
 };
 export type DBTicketTemplate = Database['public']['Tables']['ticket_message_templates']['Row'];
 
-export type TicketStatus = 'open' | 'in-progress' | 'closed';
-export type TicketPriority = 'low' | 'medium' | 'high';
+export type TicketStatus = 'open' | 'in-progress' | 'closed'
+export type TicketPriority = 'low' | 'medium' | 'high'
 export type MessageType = 'public' | 'internal';
 
 // Base ticket interface
@@ -80,41 +83,55 @@ export interface TicketTemplate extends DBTicketTemplate {
 }
 
 // Extended ticket type with optional relations
-export interface TicketWithDetails extends Omit<Ticket, 'assigned_team' | 'assigned_employee'> {
-  assigned_team: string | null;
+export interface TicketWithDetails {
+  id: string
+  user_id: string
+  subject: string
+  description: string | null
+  status: TicketStatus
+  priority: TicketPriority
+  handling_org_id: string | null
+  handling_org?: {
+    id: string
+    name: string
+  } | null
+  assigned_team: string | null
   assigned_team_details?: {
-    name: string;
-  };
-  assigned_employee: string | null;
+    id: string
+    name: string
+  } | null
+  assigned_employee: string | null
   assigned_employee_details?: {
-    display_name: string;
-    role: string;
-  };
-  messages?: TicketMessage[];
+    user_id: string
+    display_name: string
+  } | null
   creator?: {
-    display_name: string;
-    role: string;
-  };
+    display_name: string
+    role: string
+  }
+  messages?: TicketMessage[]
+  created_at: string
+  updated_at: string
 }
 
 // Create ticket input type
 export interface CreateTicketInput {
-  subject: string;
-  description?: string;
-  priority: TicketPriority;
-  handling_org_id: string;
-  assigned_team?: string;
-  assigned_employee?: string;
+  subject: string
+  description?: string
+  priority: TicketPriority
+  handling_org_id: string
+  assigned_team?: string
+  assigned_employee?: string
 }
 
 // Update ticket input type
 export interface UpdateTicketInput {
-  subject?: string;
-  description?: string;
-  status?: TicketStatus;
-  priority?: TicketPriority;
-  assigned_team?: string;
-  assigned_employee?: string;
+  subject?: string
+  description?: string
+  status?: TicketStatus
+  priority?: TicketPriority
+  assigned_team?: string | null
+  assigned_employee?: string | null
 }
 
 // Create message input type

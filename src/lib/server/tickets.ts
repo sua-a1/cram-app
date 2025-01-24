@@ -209,4 +209,46 @@ export async function getTicketStats(orgId: string) {
     acc[curr.status as string] = (acc[curr.status as string] || 0) + 1
     return acc
   }, {} as Record<string, number>)
+}
+
+export async function getCustomerTickets(userId: string): Promise<TicketWithDetails[]> {
+  const supabase = createServiceClient()
+  
+  const { data: tickets, error } = await supabase
+    .from('tickets')
+    .select(`
+      *,
+      handling_org:organizations(id, name),
+      assigned_employee:profiles!assigned_employee(user_id, display_name),
+      assigned_team:teams(id, name)
+    `)
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching customer tickets:', error)
+    return []
+  }
+
+  return tickets as TicketWithDetails[]
+}
+
+export async function getCustomerTicketStats(userId: string) {
+  const supabase = createServiceClient()
+  
+  const { data, error } = await supabase
+    .from('tickets')
+    .select('status')
+    .eq('user_id', userId)
+
+  if (error) {
+    console.error('Error fetching customer ticket stats:', error)
+    return { open: 0, inProgress: 0, closed: 0 }
+  }
+
+  return {
+    open: data.filter(t => t.status === 'open').length,
+    inProgress: data.filter(t => t.status === 'in-progress').length,
+    closed: data.filter(t => t.status === 'closed').length
+  }
 } 

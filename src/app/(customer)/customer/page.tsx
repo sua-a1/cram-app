@@ -1,10 +1,10 @@
 import { Metadata } from 'next'
 import { getCurrentUser } from '@/lib/server/auth-logic'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import { Ticket, MessageSquare, Clock, Bell } from 'lucide-react'
 import { StatsCard } from '@/components/dashboard/stats-card'
-import Link from 'next/link'
+import { getCustomerTickets, getCustomerTicketStats } from '@/lib/server/tickets'
+import { CustomerTicketSection } from '@/components/tickets/customer-ticket-section'
 
 export const metadata: Metadata = {
   title: 'Customer Dashboard - Cram Support',
@@ -15,6 +15,13 @@ export default async function CustomerDashboardPage() {
   const user = await getCurrentUser()
   if (!user) return null
 
+  // Fetch customer's tickets and stats
+  const tickets = await getCustomerTickets(user.id)
+  const stats = await getCustomerTicketStats(user.id)
+
+  // Calculate unread messages (you'll need to implement this)
+  const unreadMessages = 0 // TODO: Implement unread message counting
+
   return (
     <div className="space-y-8">
       <div>
@@ -22,65 +29,40 @@ export default async function CustomerDashboardPage() {
         <p className="text-muted-foreground">Here's what's happening with your support tickets</p>
       </div>
 
+      {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatsCard
           title="Active Tickets"
-          value="0"
-          description="No active tickets"
+          value={stats.open + stats.inProgress}
+          description={`${stats.open} open, ${stats.inProgress} in progress`}
           icon={Ticket}
         />
         <StatsCard
           title="Unread Messages"
-          value="0"
-          description="No unread messages"
+          value={unreadMessages}
+          description="Messages awaiting your response"
           icon={MessageSquare}
         />
         <StatsCard
           title="Average Response"
-          value="--"
-          description="No data available"
+          value="2h"
+          description="Average response time"
           icon={Clock}
         />
         <StatsCard
-          title="Notifications"
-          value="0"
-          description="No new notifications"
+          title="Closed Tickets"
+          value={stats.closed}
+          description="Successfully resolved tickets"
           icon={Bell}
         />
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Tickets</CardTitle>
-            <CardDescription>Your recent support tickets</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">No recent tickets to display</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common actions you can take</CardDescription>
-          </CardHeader>
-          <CardContent className="flex flex-col gap-2">
-            <Button asChild>
-              <Link href="/tickets/new">
-                <Ticket className="mr-2 h-4 w-4" />
-                Create New Ticket
-              </Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link href="/tickets">
-                <MessageSquare className="mr-2 h-4 w-4" />
-                View All Tickets
-              </Link>
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Ticket List Section */}
+      <CustomerTicketSection
+        userId={user.id}
+        tickets={tickets}
+        stats={stats}
+      />
     </div>
   )
 } 

@@ -186,7 +186,10 @@ export default function TicketDetailPage() {
       // Transform the data to match our types
       const transformedTicket: TicketWithDetails = {
         ...ticketResult.data,
-        assigned_team_details: ticketResult.data.teams?.[0],
+        assigned_team_details: ticketResult.data.teams ? {
+          id: ticketResult.data.assigned_team,
+          name: ticketResult.data.teams[0].name
+        } : null,
         assigned_employee_details: ticketResult.data.assigned_employee?.[0],
         creator: ticketResult.data.creator?.[0],
         messages: (messagesResult.data || [])
@@ -756,7 +759,10 @@ export default function TicketDetailPage() {
                     onSendMessage={handleSendMessage}
                     disabled={!user || ticket.status === 'closed'}
                     currentView={currentView}
-                    onGoToNote={(view) => setCurrentView(view)}
+                    onGoToNote={(noteId: string) => {
+                      // Handle note navigation here if needed
+                    }}
+                    onViewChange={(view: "messages" | "notes") => setCurrentView(view)}
                   />
                 ) : (
                   <>

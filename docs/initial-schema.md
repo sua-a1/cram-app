@@ -24,16 +24,19 @@ CREATE TABLE IF NOT EXISTS public.organizations (
 ------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.profiles (
   user_id uuid PRIMARY KEY REFERENCES auth.users (id) ON DELETE CASCADE,
+  email text NOT NULL UNIQUE REFERENCES auth.users(email) ON UPDATE CASCADE,
   display_name text NOT NULL,
   role text NOT NULL DEFAULT 'customer', -- 'customer', 'employee', 'admin'
   org_id uuid REFERENCES public.organizations (id), -- Required for employees/admins, NULL for customers
   department text, -- For org employees
   position text,  -- Job title/position
+  organization_name text, -- For display purposes
+  approval_status text DEFAULT 'pending' CHECK (approval_status IN ('pending', 'approved', 'rejected')),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT profiles_org_id_required CHECK (
-    (role = 'customer' AND org_id IS NULL) OR  -- Customers must not have org_id
-    ((role = 'admin' OR role = 'employee') AND org_id IS NOT NULL)  -- Employees/admins must have org_id
+  CONSTRAINT profiles_org_id_role_validation CHECK (
+    (role = 'customer' AND org_id IS NULL) OR  -- Customers never have org_id
+    (role IN ('admin', 'employee') AND (org_id IS NULL OR org_id IS NOT NULL))  -- Admins/employees can have org_id null initially
   )
 );
 
@@ -82,22 +85,19 @@ CREATE TABLE IF NOT EXISTS public.ticket_messages (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   ticket_id uuid NOT NULL REFERENCES public.tickets (id) ON DELETE CASCADE,
   author_id uuid NOT NULL REFERENCES public.profiles (user_id),
-  author_role text NOT NULL,  -- 'customer', 'employee', 'admin'
+  author_role text NOT NULL CHECK (author_role IN ('customer', 'employee', 'admin')),
   author_name text,  -- For external senders (email, API)
   author_email text,  -- For external senders (email, API)
   body text NOT NULL,
-  message_type text NOT NULL DEFAULT 'public',  -- 'public' or 'internal'
+  message_type text NOT NULL DEFAULT 'public' CHECK (message_type IN ('public', 'internal')),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   is_email boolean DEFAULT false,  -- Indicates if message was sent/received via email
-  metadata jsonb,  -- Additional message metadata (e.g., email headers, attachments)
+  metadata jsonb DEFAULT '{}'::jsonb,  -- Additional message metadata (e.g., email headers, attachments)
   template_id uuid REFERENCES public.ticket_message_templates (id),  -- Optional reference to template used
   parent_message_id uuid REFERENCES public.ticket_messages (id),  -- For threaded conversations
-  source text NOT NULL DEFAULT 'web',  -- 'web', 'email', 'api'
-  external_id text,  -- For tracking external message IDs (e.g., email message-id)
-  CONSTRAINT valid_message_type CHECK (message_type IN ('public', 'internal')),
-  CONSTRAINT valid_author_role CHECK (author_role IN ('customer', 'employee', 'admin')),
-  CONSTRAINT valid_source CHECK (source IN ('web', 'email', 'api'))
+  source text NOT NULL DEFAULT 'web' CHECK (source IN ('web', 'email', 'api')),
+  external_id text  -- For tracking external message IDs (e.g., email message-id)
 );
 
 ------------------------------------------------------------------------
@@ -106,19 +106,115 @@ CREATE TABLE IF NOT EXISTS public.ticket_messages (
 ------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ticket_message_templates (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  org_id uuid NOT NULL REFERENCES public.organizations (id),
-  title text NOT NULL,
+  org_id uuid NOT NULL REFERENCES public.organizations (id) ON DELETE CASCADE,
+  name text NOT NULL,
   content text NOT NULL,
+  category text,  -- Optional category for organization
+  is_shared boolean DEFAULT false,  -- Whether template is shared across org
   created_by uuid NOT NULL REFERENCES public.profiles (user_id),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
 ------------------------------------------------------------------------
--- 7. RLS (Row-Level Security) POLICIES
---    - Organization-aware policies for data access control
+-- 7. INTERNAL NOTES TABLE
+--    - Private notes on tickets visible only to employees/admins
 ------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.internal_notes (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  ticket_id uuid NOT NULL REFERENCES public.tickets (id) ON DELETE CASCADE,
+  author_id uuid NOT NULL REFERENCES public.profiles (user_id),
+  author_name text NOT NULL,
+  author_email text NOT NULL,
+  author_role text NOT NULL CHECK (author_role IN ('employee', 'admin')),
+  content text NOT NULL,
+  related_ticket_message_id uuid REFERENCES public.ticket_messages (id),
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
 
+------------------------------------------------------------------------
+-- 8. INDEXES
+------------------------------------------------------------------------
+CREATE INDEX IF NOT EXISTS idx_profiles_org_id ON public.profiles(org_id);
+CREATE INDEX IF NOT EXISTS idx_teams_org_id ON public.teams(org_id);
+CREATE INDEX IF NOT EXISTS idx_tickets_handling_org_id ON public.tickets(handling_org_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_parent_id ON public.ticket_messages(parent_message_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_template_id ON public.ticket_messages(template_id);
+CREATE INDEX IF NOT EXISTS idx_templates_org_id ON public.ticket_message_templates(org_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_external_id ON public.ticket_messages(external_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_messages_customer_email ON public.ticket_messages(author_email);
+
+------------------------------------------------------------------------
+-- 9. TRIGGERS
+------------------------------------------------------------------------
+-- Auto-update updated_at columns
+CREATE OR REPLACE FUNCTION public.handle_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Add updated_at triggers to all tables
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON public.teams
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON public.tickets
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON public.ticket_messages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON public.ticket_message_templates
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+CREATE TRIGGER handle_updated_at
+  BEFORE UPDATE ON public.internal_notes
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_updated_at();
+
+-- Auto-set message author info from profiles
+CREATE OR REPLACE FUNCTION public.set_message_author_info()
+RETURNS TRIGGER AS $$
+BEGIN
+  SELECT 
+    display_name,
+    email,
+    role
+  INTO 
+    NEW.author_name,
+    NEW.author_email,
+    NEW.author_role
+  FROM public.profiles
+  WHERE user_id = NEW.author_id;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER set_message_author_info_trigger
+  BEFORE INSERT ON public.ticket_messages
+  FOR EACH ROW
+  EXECUTE FUNCTION public.set_message_author_info();
+
+------------------------------------------------------------------------
+-- 10. RLS POLICIES
+------------------------------------------------------------------------
 -- Enable RLS on all tables
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
@@ -126,6 +222,7 @@ ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_message_templates ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.internal_notes ENABLE ROW LEVEL SECURITY;
 
 -- Organization Policies
 CREATE POLICY "Users can view their organization"
@@ -140,19 +237,39 @@ CREATE POLICY "Users can view their organization"
   );
 
 -- Profile Policies
-CREATE POLICY "Users can view profiles in their organization"
-  ON profiles FOR SELECT
-  TO authenticated
-  USING (
-    org_id IN (
-      SELECT org_id FROM profiles WHERE user_id = auth.uid()
-    ) OR user_id = auth.uid()
+CREATE POLICY "profiles_read_policy" ON public.profiles 
+  FOR SELECT TO authenticated 
+  USING (true);
+
+CREATE POLICY "profiles_insert_policy" ON public.profiles
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    auth.uid() = user_id AND
+    (
+      (role = 'customer' AND org_id IS NULL) OR
+      (role IN ('admin', 'employee'))
+    )
+  );
+
+CREATE POLICY "profiles_update_policy" ON public.profiles 
+  FOR UPDATE TO authenticated 
+  USING (auth.uid() = user_id)
+  WITH CHECK (
+    auth.uid() = user_id AND
+    (
+      CASE
+        WHEN role = 'customer' THEN 
+          org_id IS NULL
+        WHEN role IN ('admin', 'employee') THEN 
+          TRUE
+        ELSE FALSE
+      END
+    )
   );
 
 -- Team Policies
-CREATE POLICY "Users can view teams in their organization"
+CREATE POLICY "Users can view their organization's teams"
   ON teams FOR SELECT
-  TO authenticated
   USING (
     org_id IN (
       SELECT org_id FROM profiles WHERE user_id = auth.uid()
@@ -160,13 +277,13 @@ CREATE POLICY "Users can view teams in their organization"
   );
 
 -- Ticket Policies
-CREATE POLICY "Users can view tickets in their organization"
+CREATE POLICY "Organization employees can view assigned tickets"
   ON tickets FOR SELECT
-  TO authenticated
   USING (
     handling_org_id IN (
       SELECT org_id FROM profiles WHERE user_id = auth.uid()
-    ) OR user_id = auth.uid()
+    )
+    OR user_id = auth.uid()
   );
 
 CREATE POLICY "Admins and employees can update tickets"
@@ -189,51 +306,126 @@ CREATE POLICY "Admins and employees can update tickets"
     )
   );
 
--- Message Template Policies
-CREATE POLICY "Users can view org templates"
-  ON ticket_message_templates FOR SELECT
+-- Message Policies
+CREATE POLICY "Users can read messages for tickets they have access to"
+  ON ticket_messages FOR SELECT
   TO authenticated
   USING (
-    org_id IN (
-      SELECT org_id FROM profiles WHERE user_id = auth.uid()
+    EXISTS (
+      SELECT 1 FROM tickets
+      WHERE tickets.id = ticket_messages.ticket_id
+      AND (
+        tickets.user_id = auth.uid()
+        OR
+        EXISTS (
+          SELECT 1 FROM profiles
+          WHERE profiles.user_id = auth.uid()
+          AND profiles.org_id = tickets.handling_org_id
+          AND profiles.role IN ('admin', 'employee')
+        )
+      )
+    )
+  );
+
+CREATE POLICY "Users can create messages for tickets they have access to"
+  ON ticket_messages FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM tickets
+      WHERE tickets.id = ticket_messages.ticket_id
+      AND (
+        tickets.user_id = auth.uid()
+        OR
+        EXISTS (
+          SELECT 1 FROM profiles
+          WHERE profiles.user_id = auth.uid()
+          AND profiles.org_id = tickets.handling_org_id
+          AND profiles.role IN ('admin', 'employee')
+        )
+      )
+    )
+  );
+
+-- Template Policies
+CREATE POLICY "Users can view org templates"
+  ON ticket_message_templates FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.org_id = ticket_message_templates.org_id
     )
   );
 
 CREATE POLICY "Employees can create templates"
   ON ticket_message_templates FOR INSERT
-  TO authenticated
   WITH CHECK (
     EXISTS (
       SELECT 1 FROM profiles
       WHERE profiles.user_id = auth.uid()
       AND profiles.org_id = ticket_message_templates.org_id
-      AND profiles.role IN ('admin', 'employee')
+      AND profiles.role IN ('employee', 'admin')
     )
   );
 
-CREATE POLICY "Creator/admin can update templates"
-  ON ticket_message_templates FOR UPDATE
+-- Internal Notes Policies
+CREATE POLICY "Employees and admins can view internal notes"
+  ON internal_notes FOR SELECT
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.user_id = auth.uid()
-      AND profiles.org_id = ticket_message_templates.org_id
-      AND (profiles.role = 'admin' OR profiles.user_id = ticket_message_templates.created_by)
+      SELECT 1 FROM tickets t
+      JOIN profiles p ON p.user_id = auth.uid()
+      WHERE t.id = internal_notes.ticket_id
+      AND t.handling_org_id = p.org_id
+      AND p.role IN ('employee', 'admin')
     )
   );
 
-CREATE POLICY "Creator/admin can delete templates"
-  ON ticket_message_templates FOR DELETE
+CREATE POLICY "Employees and admins can create internal notes"
+  ON internal_notes FOR INSERT
+  TO authenticated
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM tickets t
+      JOIN profiles p ON p.user_id = auth.uid()
+      WHERE t.id = internal_notes.ticket_id
+      AND t.handling_org_id = p.org_id
+      AND p.role IN ('employee', 'admin')
+    )
+  );
+
+CREATE POLICY "Author or admin can update internal notes"
+  ON internal_notes FOR UPDATE
   TO authenticated
   USING (
     EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.user_id = auth.uid()
-      AND profiles.org_id = ticket_message_templates.org_id
-      AND (profiles.role = 'admin' OR profiles.user_id = ticket_message_templates.created_by)
+      SELECT 1 FROM tickets t
+      JOIN profiles p ON p.user_id = auth.uid()
+      WHERE t.id = internal_notes.ticket_id
+      AND t.handling_org_id = p.org_id
+      AND (p.role = 'admin' OR auth.uid() = internal_notes.author_id)
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM tickets t
+      JOIN profiles p ON p.user_id = auth.uid()
+      WHERE t.id = internal_notes.ticket_id
+      AND t.handling_org_id = p.org_id
+      AND (p.role = 'admin' OR auth.uid() = internal_notes.author_id)
     )
   );
+
+-- Grant access to authenticated users
+GRANT ALL ON public.organizations TO authenticated;
+GRANT ALL ON public.profiles TO authenticated;
+GRANT ALL ON public.teams TO authenticated;
+GRANT ALL ON public.tickets TO authenticated;
+GRANT ALL ON public.ticket_messages TO authenticated;
+GRANT ALL ON public.ticket_message_templates TO authenticated;
+GRANT ALL ON public.internal_notes TO authenticated;
 
 ------------------------------------------------------------------------
 -- The above schema covers:
@@ -243,5 +435,6 @@ CREATE POLICY "Creator/admin can delete templates"
 --   - Enhanced tickets with status and priority constraints
 --   - Ticket messages with type constraints
 --   - Message templates with org context
+--   - Internal notes for employees/admins
 --   - Comprehensive RLS policies for data access control
 ------------------------------------------------------------------------

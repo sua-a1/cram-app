@@ -51,7 +51,7 @@ export function TicketList({
       const matchesSearch = search === '' || 
         ticket.subject.toLowerCase().includes(search.toLowerCase()) ||
         (ticket.description?.toLowerCase().includes(search.toLowerCase()) ?? false);
-      
+
       const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
 
@@ -67,7 +67,7 @@ export function TicketList({
         setCreateDialogOpen(false)
       } finally {
         setIsSubmitting(false)
-      }
+  }
     },
     [onCreateTicket]
   )
@@ -91,7 +91,7 @@ export function TicketList({
       }
     },
     [editingTicket, onEditTicket]
-  )
+    )
 
   const handleTicketClick = (ticketId: string) => {
     router.push(`/org/tickets/${ticketId}`)
@@ -179,7 +179,7 @@ export function TicketList({
             mode="edit"
             isSubmitting={isSubmitting}
           />
-        )}
+            )}
       </div>
     </TicketSelectionProvider>
   )
