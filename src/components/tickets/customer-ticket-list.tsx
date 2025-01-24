@@ -14,6 +14,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { TicketWithDetails } from '@/types/tickets'
 import Link from 'next/link'
+import { CreateTicketDialog } from './create-ticket-dialog'
 
 interface CustomerTicketListProps {
   tickets: TicketWithDetails[]
@@ -32,51 +33,63 @@ const priorityColors = {
   'high': 'bg-red-100 text-red-700 hover:bg-red-200'
 } as const
 
-export function CustomerTicketList({ tickets, isLoading = false }: CustomerTicketListProps) {
+export function CustomerTicketList({ tickets, isLoading }: CustomerTicketListProps) {
   if (isLoading) {
-    return <div>Loading tickets...</div>
-  }
-
-  if (!tickets?.length) {
-    return (
-      <div className="py-6 text-center text-sm text-muted-foreground">
-        No tickets found
-      </div>
-    )
+    return <div className="py-6 text-center text-sm text-muted-foreground">Loading tickets...</div>
   }
 
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>ID</TableHead>
-          <TableHead>Subject</TableHead>
-          <TableHead>Organization</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Created</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {tickets.map((ticket) => (
-          <TableRow key={ticket.id}>
-            <TableCell className="font-mono text-sm">
-              <Link href={`/tickets/${ticket.id}`} className="hover:underline">
-                {ticket.id.split('-')[0]}
-              </Link>
-            </TableCell>
-            <TableCell>{ticket.subject}</TableCell>
-            <TableCell>{ticket.handling_org?.name || 'Unassigned'}</TableCell>
-            <TableCell>
-              <Badge variant="secondary" className={cn(statusColors[ticket.status])}>
-                {ticket.status}
-              </Badge>
-            </TableCell>
-            <TableCell className="text-muted-foreground">
-              {format(new Date(ticket.created_at), 'MMM d, yyyy')}
-            </TableCell>
-          </TableRow>
-        ))}
-      </TableBody>
-    </Table>
+    <div>
+      <div className="mb-4 flex justify-end">
+        <CreateTicketDialog />
+      </div>
+      <div className="relative w-full overflow-auto">
+        {tickets.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">No tickets found</div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>ID</TableHead>
+                <TableHead>Subject</TableHead>
+                <TableHead>Organization</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tickets.map((ticket) => (
+                <TableRow key={ticket.id}>
+                  <TableCell className="font-mono text-sm">
+                    <Link href={`/tickets/${ticket.id}`} className="hover:underline">
+                      {ticket.id}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{ticket.subject}</TableCell>
+                  <TableCell>{ticket.handling_org?.name || 'Unassigned'}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant="outline"
+                      className={
+                        ticket.status === 'open'
+                          ? 'border-transparent bg-yellow-500/10 text-yellow-700 hover:bg-yellow-500/20'
+                          : ticket.status === 'closed'
+                          ? 'border-transparent bg-green-500/10 text-green-700 hover:bg-green-500/20'
+                          : 'border-transparent bg-blue-500/10 text-blue-700 hover:bg-blue-500/20'
+                      }
+                    >
+                      {ticket.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {format(new Date(ticket.created_at), 'MMM d, yyyy')}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+      </div>
+    </div>
   )
 } 
