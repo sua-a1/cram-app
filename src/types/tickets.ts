@@ -2,7 +2,24 @@ import { Database, Json } from './supabase';
 
 // Base types from database
 export type DBTicket = Database['public']['Tables']['tickets']['Row'];
-export type DBTicketMessage = Database['public']['Tables']['ticket_messages']['Row'];
+export type DBTicketMessage = {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  author_role: string;
+  author_name: string | null;
+  author_email: string | null;
+  body: string;
+  message_type: string;
+  created_at: string;
+  updated_at: string;
+  is_email: boolean | null;
+  metadata: Json | null;
+  template_id: string | null;
+  parent_message_id: string | null;
+  source: string;
+  external_id: string | null;
+};
 export type DBTicketTemplate = Database['public']['Tables']['ticket_message_templates']['Row'];
 
 export type TicketStatus = 'open' | 'in-progress' | 'closed';
@@ -24,9 +41,28 @@ export interface Ticket extends DBTicket {
   updated_at: string;
 }
 
-// Base message interface
-export interface TicketMessage extends Omit<DBTicketMessage, 'message_type'> {
+// Message interface
+export interface TicketMessage {
+  id: string;
+  ticket_id: string;
+  author_id: string;
+  author_role: 'customer' | 'employee' | 'admin';
+  author_name: string | null;
+  author_email: string | null;
+  body: string;
   message_type: MessageType;
+  created_at: string;
+  updated_at: string;
+  is_email: boolean | null;
+  metadata: Json | null;
+  template_id: string | null;
+  parent_message_id: string | null;
+  source: 'web' | 'email' | 'api';
+  external_id: string | null;
+  author?: {
+    display_name: string;
+    role: string;
+  };
 }
 
 // Template interface

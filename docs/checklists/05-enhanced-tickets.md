@@ -4,24 +4,24 @@
 This checklist outlines the implementation of enhanced ticket features including bulk operations, messaging interface, rich text editing, and internal notes.
 
 ## 1. Database Schema Updates
-- [ ] Create new table `ticket_message_templates` for storing quick response macros
+- [x] Create new table `ticket_message_templates` for storing quick response macros
   - Fields: id, org_id, name, content, created_at, updated_at
-- [ ] Enhance `ticket_messages` table
+- [x] Enhance `ticket_messages` table
   - Add `is_email` boolean field for email messages
   - Add `metadata` JSONB field for additional message data
   - Add `template_id` reference to ticket_message_templates (optional)
   - Add `parent_message_id` for threaded conversations
 
 ## 2. Bulk Operations Implementation
-- [ ] Create bulk operations server actions
-  - [ ] Implement status update for multiple tickets
-  - [ ] Implement priority update for multiple tickets
-  - [ ] Add RLS policies for bulk operations
-- [ ] Build bulk operations UI
-  - [ ] Add ticket selection UI with checkboxes
-  - [ ] Create bulk actions dropdown menu
-  - [ ] Implement loading and success states
-  - [ ] Add error handling and user feedback
+- [x] Create bulk operations server actions
+  - [x] Implement status update for multiple tickets
+  - [x] Implement priority update for multiple tickets
+  - [x] Add RLS policies for bulk operations
+- [x] Build bulk operations UI
+  - [x] Add ticket selection UI with checkboxes
+  - [x] Create bulk actions dropdown menu
+  - [x] Implement loading and success states
+  - [x] Add error handling and user feedback
 
 ## 3. Messaging Interface
 - [ ] Create ticket conversation component
