@@ -17,7 +17,7 @@ export async function createTemplate(data: CreateTemplateInput) {
   const supabase = createServerSupabaseClient();
 
   // Get the current session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await (await supabase).auth.getSession();
   if (sessionError || !session?.user) {
     throw new Error('Not authenticated');
   }
@@ -60,7 +60,7 @@ export async function updateTemplate(id: string, data: Partial<TicketTemplate>) 
   const supabase = createServerSupabaseClient();
 
   // Get the current session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await (await supabase).auth.getSession();
   if (sessionError || !session?.user) {
     throw new Error('Not authenticated');
   }
@@ -101,7 +101,7 @@ export async function deleteTemplate(id: string) {
   const supabase = createServerSupabaseClient();
 
   // Get the current session
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  const { data: { session }, error: sessionError } = await (await supabase).auth.getSession();
   if (sessionError || !session?.user) {
     throw new Error('Not authenticated');
   }

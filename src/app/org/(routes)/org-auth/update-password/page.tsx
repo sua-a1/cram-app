@@ -14,7 +14,7 @@ export default async function OrgUpdatePasswordPage() {
   const supabase = createServerSupabaseClient()
   
   // Get the current session
-  const { data: { session } } = await supabase.auth.getSession()
+  const { data: { session } } = await (await supabase).auth.getSession()
   
   // If no session, redirect to sign in
   if (!session) {

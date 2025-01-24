@@ -6,7 +6,7 @@ export async function POST(request: Request) {
   try {
     const data = await request.json();
     const serviceClient = createServiceClient();
-    const supabase = createServerSupabaseClient();
+    const supabase = await createServerSupabaseClient();
 
     // Get the current session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();

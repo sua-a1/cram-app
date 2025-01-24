@@ -1,7 +1,7 @@
 import { Metadata } from 'next'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
-import { createServerSupabaseClient } from '@/lib/supabase/server'
+import { createServerClient } from '@supabase/ssr'
 import { UpdatePasswordForm } from '@/components/auth/update-password-form'
 
 export const metadata: Metadata = {
@@ -11,7 +11,31 @@ export const metadata: Metadata = {
 
 export default async function UpdatePasswordPage() {
   const cookieStore = cookies()
-  const supabase = createServerSupabaseClient()
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        get(name: string) {
+          return cookieStore.get(name)?.value
+        },
+        set(name: string, value: string, options: any) {
+          try {
+            cookieStore.set({ name, value, ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
+        },
+        remove(name: string, options: any) {
+          try {
+            cookieStore.set({ name, value: '', ...options })
+          } catch (error) {
+            // Handle cookies in edge functions
+          }
+        },
+      },
+    }
+  )
   
   // Get the current session
   const { data: { session } } = await supabase.auth.getSession()
