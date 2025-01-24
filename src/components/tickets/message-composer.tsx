@@ -1,25 +1,20 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Loader2, Send, Bold, Italic, Link2, Image as ImageIcon, List, Code, Quote } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { MessageType } from '@/types/tickets';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import LinkExtension from '@tiptap/extension-link';
 import ImageExtension from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
+import { Button } from '@/components/ui/button';
 import { Toggle } from '@/components/ui/toggle';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Loader2, Send, Bold, Italic, Link2, Image as ImageIcon, List, Code, Quote } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import type { MessageType } from '@/types/tickets';
+import { useDebounce } from '@/hooks/use-debounce';
 
 interface MessageComposerProps {
   ticketId: string;
@@ -77,9 +72,14 @@ export function MessageComposer({
   className,
   disabled = false 
 }: MessageComposerProps) {
+  // Get draft key for this specific ticket
+  const getDraftKey = useCallback(() => `ticket-draft-${ticketId}`, [ticketId]);
+
   const [sending, setSending] = useState(false);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showImageDialog, setShowImageDialog] = useState(false);
+  const [draftContent, setDraftContent] = useState('');
+  const debouncedContent = useDebounce(draftContent, 1000);
 
   const editor = useEditor({
     extensions: [
@@ -124,20 +124,38 @@ export function MessageComposer({
         class: 'prose prose-sm dark:prose-invert max-w-none min-h-[100px] px-3 py-2 focus:outline-none',
       },
     },
+    onUpdate: ({ editor }) => {
+      setDraftContent(editor.getHTML());
+    },
   });
+
+  // Load draft on mount
+  useEffect(() => {
+    if (!editor) return;
+    
+    const savedDraft = localStorage.getItem(getDraftKey());
+    if (savedDraft) {
+      editor.commands.setContent(savedDraft);
+    }
+  }, [editor, getDraftKey]);
+
+  // Save draft when content changes
+  useEffect(() => {
+    if (debouncedContent) {
+      localStorage.setItem(getDraftKey(), debouncedContent);
+    }
+  }, [debouncedContent, getDraftKey]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     e.stopPropagation();
     
-    // Early return if conditions aren't met
     if (!editor?.getText().trim() || sending || disabled) {
       return;
     }
 
     const messageContent = editor.getHTML();
     
-    // Early return if no content
     if (!messageContent) {
       return;
     }
@@ -150,17 +168,17 @@ export function MessageComposer({
         messageType: 'public'
       });
       
-      // Clear content only after successful send
+      // Clear content and remove draft after successful send
       editor.commands.clearContent();
       editor.commands.focus();
+      localStorage.removeItem(getDraftKey());
+      setDraftContent('');
     } catch (error) {
       console.error('Error sending message:', error);
-      // Reset sending state on error
       setSending(false);
       return;
     }
 
-    // Reset sending state after successful send
     setSending(false);
   };
 
@@ -390,6 +408,11 @@ export function MessageComposer({
           </Dialog>
         </div>
         <EditorContent editor={editor} disabled={disabled} />
+        {draftContent && (
+          <div className="px-3 py-1 text-xs text-muted-foreground border-t">
+            Draft saved
+          </div>
+        )}
       </div>
       <div className="flex justify-end">
         <Button 

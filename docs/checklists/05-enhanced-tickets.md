@@ -39,8 +39,7 @@ This checklist outlines the implementation of enhanced ticket features including
   - [x] Configure basic formatting options
   - [x] Add markdown support
   - [x] Implement image handling
-- [ ] Create message preview component
-- [ ] Add draft saving functionality
+- [x] Add draft saving functionality
 
 ## 5. Quick Response Templates
 - [ ] Build template management interface

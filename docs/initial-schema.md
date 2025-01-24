@@ -76,16 +76,28 @@ CREATE TABLE IF NOT EXISTS public.tickets (
 ------------------------------------------------------------------------
 -- 5. TICKET_MESSAGES TABLE
 --    - Tracks each note, reply, or internal message on a ticket.
+--    - Includes support for email messages, templates, and message threading
 ------------------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS public.ticket_messages (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   ticket_id uuid NOT NULL REFERENCES public.tickets (id) ON DELETE CASCADE,
   author_id uuid NOT NULL REFERENCES public.profiles (user_id),
-  message_type text NOT NULL DEFAULT 'public',  -- 'public' or 'internal'
+  author_role text NOT NULL,  -- 'customer', 'employee', 'admin'
+  author_name text,  -- For external senders (email, API)
+  author_email text,  -- For external senders (email, API)
   body text NOT NULL,
+  message_type text NOT NULL DEFAULT 'public',  -- 'public' or 'internal'
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  CONSTRAINT valid_message_type CHECK (message_type IN ('public', 'internal'))
+  is_email boolean DEFAULT false,  -- Indicates if message was sent/received via email
+  metadata jsonb,  -- Additional message metadata (e.g., email headers, attachments)
+  template_id uuid REFERENCES public.ticket_message_templates (id),  -- Optional reference to template used
+  parent_message_id uuid REFERENCES public.ticket_messages (id),  -- For threaded conversations
+  source text NOT NULL DEFAULT 'web',  -- 'web', 'email', 'api'
+  external_id text,  -- For tracking external message IDs (e.g., email message-id)
+  CONSTRAINT valid_message_type CHECK (message_type IN ('public', 'internal')),
+  CONSTRAINT valid_author_role CHECK (author_role IN ('customer', 'employee', 'admin')),
+  CONSTRAINT valid_source CHECK (source IN ('web', 'email', 'api'))
 );
 
 ------------------------------------------------------------------------
