@@ -54,23 +54,18 @@ function MessageItem({ message, isCurrentUser, notes = [], onGoToNote, onAddNote
     if (!noteContent.trim() || isSubmitting) return;
     
     setIsSubmitting(true);
+    let succeeded = false;
     try {
       await onAddNote?.(message.id, noteContent);
-      setNoteContent('');
-      setIsAddingNote(false);
-      toast({
-        title: "Success",
-        description: "Note added successfully"
-      });
+      succeeded = true;
     } catch (error) {
       console.error('Error adding note:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add note. Please try again.",
-        variant: "destructive"
-      });
     } finally {
       setIsSubmitting(false);
+      if (succeeded) {
+        setNoteContent('');
+        setIsAddingNote(false);
+      }
     }
   };
 
@@ -316,15 +311,15 @@ function MessageItem({ message, isCurrentUser, notes = [], onGoToNote, onAddNote
                 </Button>
                 <Button
                   size="sm"
-                  className="h-7 bg-blue-600 hover:bg-blue-700 text-xs"
+                  className="h-7 bg-blue-600 hover:bg-blue-700 text-xs min-w-[80px]"
                   onClick={handleAddNote}
                   disabled={!noteContent.trim() || isSubmitting}
                 >
                   {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                      Adding...
-                    </>
+                    <div className="flex items-center gap-1">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      <span>Adding...</span>
+                    </div>
                   ) : (
                     'Add Note'
                   )}
@@ -764,26 +759,32 @@ export function TicketMessages({
     }
   };
 
-  const handleAddNote = async (messageId: string | null, content: string) => {
+  const handleAddNote = async (messageId: string | null, content: string): Promise<void> => {
+    if (!content.trim() || !messages.length) {
+      toast({
+        title: "Error",
+        description: "Unable to add note. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
-      const { data: userProfile } = await supabase
+      const { data: userProfile, error: profileError } = await supabase
         .from('profiles')
         .select('display_name, role, email')
         .eq('user_id', currentUserId)
         .single();
 
-      if (!userProfile) {
-        throw new Error('User profile not found');
-      }
+      if (profileError) throw profileError;
+      if (!userProfile) throw new Error('User profile not found');
 
-      // Add the note
       const { error: insertError } = await supabase
         .from("internal_notes")
         .insert({
           ticket_id: messages[0].ticket_id,
-          content,
-          // Only set related_ticket_message_id if messageId is provided (margin notes)
           ...(messageId ? { related_ticket_message_id: messageId } : {}),
+          content,
           author_id: currentUserId,
           author_name: userProfile.display_name,
           author_email: userProfile.email,
@@ -793,7 +794,7 @@ export function TicketMessages({
         });
 
       if (insertError) throw insertError;
-
+      await fetchNotes();
       toast({
         title: "Note added",
         description: "Your note has been added successfully.",
@@ -805,7 +806,6 @@ export function TicketMessages({
         description: error?.message || "Failed to add note. Please try again.",
         variant: "destructive",
       });
-      throw error;
     }
   };
 

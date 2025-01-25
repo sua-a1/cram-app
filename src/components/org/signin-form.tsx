@@ -62,9 +62,9 @@ export function OrgSignInForm() {
         description: 'Welcome back!',
       })
       
-      // Important: Set loading to false after successful sign-in
-      // This allows the auth provider to handle navigation
-      setIsLoading(false)
+      // Navigate after successful sign-in
+      router.push(redirectUrl)
+      router.refresh()
     } catch (error) {
       console.error('Sign in error:', error)
       toast({
@@ -72,6 +72,7 @@ export function OrgSignInForm() {
         title: 'Error',
         description: error instanceof Error ? error.message : 'Something went wrong. Please try again.',
       })
+    } finally {
       setIsLoading(false)
     }
   }
