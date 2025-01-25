@@ -1,6 +1,112 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# cram: customer relationship automated management
+
+Cram is a sophisticated customer support platform built with Next.js 13+ and Supabase, integrating modern technologies and AI capabilities to streamline support operations. It provides a robust ticketing system with real-time updates, comprehensive team management, and an intuitive customer portal.
+
+## Currently Implemented Features
+
+### Employee Interface
+
+#### Queue Management
+The queue management system provides employees with powerful tools to efficiently handle support tickets:
+
+- **Customizable Views**
+  - Dynamic ticket prioritization interface
+  - Flexible queue organization based on employee preferences
+  - Advanced sorting and filtering capabilities
+
+- **Real-Time Updates**
+  - Instant ticket status synchronization
+  - Live queue updates reflecting team member actions
+  - WebSocket-powered real-time data flow
+
+- **Quick Filters**
+  - Status-based filtering (Open, In Progress, Resolved, etc.)
+  - Priority-based sorting (High, Medium, Low)
+  - Custom filter combinations for specialized workflows
+
+- **Bulk Operations**
+  - Multi-ticket status updates
+  - Batch assignment capabilities
+  - Efficient handling of repetitive tasks
+
+#### Ticket Handling
+Comprehensive ticket management tools enable effective customer support:
+
+- **Customer History**
+  - Complete conversation timeline
+  - Detailed interaction history
+  - Customer context preservation
+
+- **Rich Text Editing**
+  - Markdown support for formatted responses
+  - Image and attachment handling
+  - Professional response formatting
+
+- **Quick Responses**
+  - Organization-wide response templates
+  - Frequently used answer snippets
+  - Team-specific template libraries
+
+- **Collaboration Tools**
+  - Real-time internal notes
+  - Team member mentions
+  - Ticket-specific collaboration threads
+
+### Customer Features
+
+#### Customer Portal
+A user-friendly interface for customer ticket management:
+
+- **Ticket Tracking**
+  - Self-service ticket creation
+  - Real-time status monitoring
+  - Ticket update capabilities
+
+- **Interaction History**
+  - Chronological communication logs
+  - Resolution documentation
+  - Complete ticket lifecycle visibility
+
+- **Secure Authentication**
+  - Role-based access control
+  - Secure login system
+  - Privacy-focused data handling
+
+#### Communication Tools
+Robust messaging system for customer-employee interaction:
+
+- **Ticket Conversations**
+  - messaging interface
+  - Clear communication history
+
+- **Proactive Notifications**
+  - Status change alerts
+  - New message notifications
+  - Important update reminders
+
+## Testing & CI/CD Infrastructure
+
+### Component Testing
+- **Storybook Integration**
+  - Isolated component development
+  - Visual regression testing
+  - Component documentation
+
+### Deployment Pipeline
+- **Automated CI/CD**
+  - GitHub integration with Vercel for GitHub deployment automation
+  - Build process optimization
+
+---
 
 ## Getting Started
+
+### Technical Highlights
+- Built with Next.js 13+ App Router and TypeScript
+- Real-time updates powered by Supabase
+- Modern UI with Shadcn UI, Radix, and Tailwind CSS
+- Comprehensive testing suite with Storybook and Cypress
+- Automated CI/CD pipeline with Vercel deployment
 
 First, run the development server:
 
