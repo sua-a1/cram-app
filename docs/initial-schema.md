@@ -154,7 +154,22 @@ CREATE TABLE IF NOT EXISTS public.notifications (
 );
 
 ------------------------------------------------------------------------
--- 9. INDEXES
+-- 9. TICKET FEEDBACK TABLE
+--    - Stores customer feedback and ratings after ticket closure
+------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS public.ticket_feedback (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    ticket_id uuid NOT NULL REFERENCES public.tickets(id) ON DELETE CASCADE,
+    user_id uuid NOT NULL REFERENCES public.profiles(user_id) ON DELETE CASCADE,
+    rating integer NOT NULL CHECK (rating >= 0 AND rating <= 5),
+    feedback text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT one_feedback_per_ticket UNIQUE (ticket_id)
+);
+
+------------------------------------------------------------------------
+-- 10. INDEXES
 ------------------------------------------------------------------------
 CREATE INDEX IF NOT EXISTS idx_profiles_org_id ON public.profiles(org_id);
 CREATE INDEX IF NOT EXISTS idx_teams_org_id ON public.teams(org_id);
@@ -169,9 +184,12 @@ CREATE INDEX IF NOT EXISTS idx_ticket_messages_customer_email ON public.ticket_m
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(user_id);
 CREATE INDEX IF NOT EXISTS idx_notifications_read ON public.notifications(read);
 CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON public.notifications(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_ticket_feedback_ticket_id ON public.ticket_feedback(ticket_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_feedback_user_id ON public.ticket_feedback(user_id);
+CREATE INDEX IF NOT EXISTS idx_ticket_feedback_rating ON public.ticket_feedback(rating);
 
 ------------------------------------------------------------------------
--- 10. TRIGGERS
+-- 11. TRIGGERS
 ------------------------------------------------------------------------
 -- Auto-update updated_at columns
 CREATE OR REPLACE FUNCTION public.handle_updated_at()
@@ -238,7 +256,7 @@ CREATE TRIGGER set_message_author_info_trigger
   EXECUTE FUNCTION public.set_message_author_info();
 
 ------------------------------------------------------------------------
--- 11. RLS POLICIES
+-- 12. RLS POLICIES
 ------------------------------------------------------------------------
 -- Enable RLS on all tables
 ALTER TABLE public.organizations ENABLE ROW LEVEL SECURITY;
@@ -249,6 +267,7 @@ ALTER TABLE public.ticket_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ticket_message_templates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.internal_notes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ticket_feedback ENABLE ROW LEVEL SECURITY;
 
 -- Organization Policies
 CREATE POLICY "Users can view their organization"
@@ -555,6 +574,7 @@ GRANT ALL ON public.ticket_messages TO authenticated;
 GRANT ALL ON public.ticket_message_templates TO authenticated;
 GRANT ALL ON public.internal_notes TO authenticated;
 GRANT ALL ON public.notifications TO authenticated;
+GRANT ALL ON public.ticket_feedback TO authenticated;
 
 ------------------------------------------------------------------------
 -- The above schema covers:
@@ -566,5 +586,6 @@ GRANT ALL ON public.notifications TO authenticated;
 -- 6. Internal notes for employees/admins
 -- 7. Email integration support
 -- 8. Notification support
--- 9. Row Level Security policies
+-- 9. Ticket feedback support
+-- 10. Row Level Security policies
 ------------------------------------------------------------------------

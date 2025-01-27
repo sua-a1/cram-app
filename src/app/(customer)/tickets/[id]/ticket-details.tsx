@@ -3,16 +3,20 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { CustomerMessageInterface } from '@/components/tickets/customer-message-interface'
 import { formatDistanceToNow } from 'date-fns'
 import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import type { TicketWithDetails, TicketMessage, MessageType } from '@/types/tickets'
 import type { RealtimePostgresChangesPayload } from '@supabase/supabase-js'
 import { useToast } from '@/hooks/use-toast'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Lock } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { TimeAgo } from '@/components/ui/time-ago'
+import { closeTicket } from '@/app/actions/tickets'
+import { TicketFeedbackDialog } from '@/components/tickets/ticket-feedback-dialog'
+import { TicketFeedbackPrompt } from '@/components/tickets/ticket-feedback-prompt'
 
 type TicketStatus = 'open' | 'in-progress' | 'closed'
 
@@ -98,10 +102,13 @@ export function TicketDetails({ ticket, userId }: TicketDetailsProps) {
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(ticket.hasMoreMessages)
   const [page, setPage] = useState(1)
+  const [isClosing, setIsClosing] = useState(false)
+  const [showFeedbackDialog, setShowFeedbackDialog] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const initialLoadRef = useRef(true)
   const supabase = createClientComponentClient()
   const { toast } = useToast()
+  const [hasFeedback, setHasFeedback] = useState(false)
 
   const ITEMS_PER_PAGE = 20
 
@@ -359,6 +366,25 @@ export function TicketDetails({ ticket, userId }: TicketDetailsProps) {
     }
   }, [scrollToBottom])
 
+  // Check if ticket has feedback
+  useEffect(() => {
+    if (ticketStatus === 'closed') {
+      const checkFeedback = async () => {
+        const { data, error } = await supabase
+          .from('ticket_feedback')
+          .select('id')
+          .eq('ticket_id', ticket.id)
+          .single();
+
+        if (!error && data) {
+          setHasFeedback(true);
+        }
+      };
+
+      checkFeedback();
+    }
+  }, [ticketStatus, ticket.id, supabase]);
+
   const onMessageSent = () => {
     // Messages will be updated automatically through the subscription
     if (!isSubscribed) {
@@ -371,12 +397,63 @@ export function TicketDetails({ ticket, userId }: TicketDetailsProps) {
     }
   }
 
+  const handleCloseTicket = async () => {
+    if (isClosing) return;
+
+    try {
+      setIsClosing(true);
+      const result = await closeTicket(ticket.id, userId);
+
+      if (!result.success) {
+        throw new Error(result.error);
+      }
+
+      toast({
+        title: 'Ticket closed',
+        description: 'Your ticket has been closed. Please provide feedback about your experience.',
+      });
+
+      // Show the feedback dialog
+      setShowFeedbackDialog(true);
+    } catch (error: any) {
+      console.error('Error closing ticket:', error);
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to close ticket. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsClosing(false);
+    }
+  };
+
   return (
     <div className="space-y-8">
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle>Ticket Details</CardTitle>
+            {ticketStatus !== 'closed' && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleCloseTicket}
+                disabled={isClosing}
+                className="gap-2"
+              >
+                {isClosing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Closing...
+                  </>
+                ) : (
+                  <>
+                    <Lock className="h-4 w-4" />
+                    Close Ticket
+                  </>
+                )}
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="grid gap-4">
             <div className="grid grid-cols-2 gap-4">
@@ -446,6 +523,22 @@ export function TicketDetails({ ticket, userId }: TicketDetailsProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Show feedback prompt if ticket is closed and no feedback exists */}
+      {ticketStatus === 'closed' && (
+        <TicketFeedbackPrompt
+          ticketId={ticket.id}
+          userId={userId}
+          hasFeedback={hasFeedback}
+        />
+      )}
+
+      <TicketFeedbackDialog
+        open={showFeedbackDialog}
+        onOpenChange={setShowFeedbackDialog}
+        ticketId={ticket.id}
+        userId={userId}
+      />
     </div>
   )
 } 
