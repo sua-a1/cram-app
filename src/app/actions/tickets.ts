@@ -98,7 +98,11 @@ export async function closeTicket(
       .eq('id', ticketId)
       .single();
 
-    if (ticketError || !ticket) {
+    if (ticketError) {
+      throw new Error('Ticket not found');
+    }
+
+    if (!ticket) {
       throw new Error('Ticket not found');
     }
 
@@ -117,7 +121,8 @@ export async function closeTicket(
         status: 'closed',
         updated_at: new Date().toISOString()
       })
-      .eq('id', ticketId);
+      .eq('id', ticketId)
+      .single();
 
     if (updateError) {
       throw updateError;
@@ -166,7 +171,11 @@ export async function submitFeedback({
       .eq('id', ticketId)
       .single();
 
-    if (ticketError || !ticket) {
+    if (ticketError) {
+      throw new Error('Ticket not found');
+    }
+
+    if (!ticket) {
       throw new Error('Ticket not found');
     }
 
@@ -198,7 +207,8 @@ export async function submitFeedback({
           feedback,
           updated_at: new Date().toISOString()
         })
-        .eq('ticket_id', ticketId);
+        .eq('ticket_id', ticketId)
+        .single();
 
       if (updateError) {
         throw updateError;
@@ -212,7 +222,8 @@ export async function submitFeedback({
           user_id: userId,
           rating,
           feedback
-        });
+        })
+        .single();
 
       if (insertError) {
         throw insertError;

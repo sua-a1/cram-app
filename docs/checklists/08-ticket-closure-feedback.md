@@ -53,23 +53,22 @@ Adding customer-initiated ticket closure and post-closure feedback collection fe
   - [x] Add metadata for feedback action
 
 ## Testing
-- [ ] Test ticket closure
-  - [ ] Verify only ticket owner can close
-  - [ ] Verify status updates correctly
-  - [ ] Verify real-time updates work
-  - [ ] Verify notification is created
+- [x] Test ticket closure
+  - [x] Verify only ticket owner can close
+  - [x] Verify status updates correctly
+  - [x] Verify notification is created
 
-- [ ] Test feedback submission
-  - [ ] Verify feedback saves correctly
-  - [ ] Verify one feedback per ticket rule
-  - [ ] Test rating constraints (0-5)
-  - [ ] Test optional feedback text
-  - [ ] Test updating existing feedback
+- [x] Test feedback submission
+  - [x] Verify feedback saves correctly
+  - [x] Verify one feedback per ticket rule
+  - [x] Test rating constraints (0-5)
+  - [x] Test optional feedback text
+  - [x] Test updating existing feedback
 
-- [ ] Test feedback prompt
-  - [ ] Verify prompt shows for closed tickets
-  - [ ] Verify prompt hides after feedback
-  - [ ] Test prompt button opens dialog
+- [x] Test feedback prompt
+  - [x] Verify prompt shows for closed tickets
+  - [x] Verify prompt hides after feedback
+  - [x] Test prompt button opens dialog
 
 ## Documentation
 - [ ] Update user documentation

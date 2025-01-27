@@ -61,6 +61,7 @@ A user-friendly interface for customer ticket management:
   - Self-service ticket creation
   - Real-time status monitoring
   - Ticket update capabilities
+  - Ticket closure ability with feedback & rating prompting
 
 - **Interaction History**
   - Chronological communication logs
