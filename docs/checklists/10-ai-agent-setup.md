@@ -111,16 +111,66 @@ This checklist covers the initial setup of the AI Agent within the Cram project,
   - [x] Implemented ticket context generation
   - [x] Added embedding generation with retry logic
   - [x] Created real-time updates for ticket changes
+  - [x] Added comprehensive test suite for ticket context embeddings
+  - [x] Implemented mock Supabase client for testing
+  - [x] Added proper error handling and progress tracking
 - [x] Implement relevance search for similar tickets
   - [x] Added PostgreSQL similarity search function
   - [x] Created findSimilarTickets utility
   - [x] Added proper error handling and types
+  - [x] Added tests for similar ticket search functionality
 - [x] Set up automatic embedding updates on ticket changes
   - [x] Added Supabase real-time subscription
   - [x] Implemented automatic updates on ticket modifications
   - [x] Added batch processing for existing tickets
+  - [x] Added progress callback for batch processing
 
-## 4. Database Schema Updates
+## 4. Initial Deployment & Pipeline Check
+- [~] Set up minimal "hello world" deployment
+  - [x] Create basic agent route handler (/api/agent/hello)
+  - [x] Implement simple ticket processing workflow (hello-world.ts)
+  - [x] Add basic error handling and logging
+  - [x] Add request validation and type safety
+  - [ ] Deploy to LangGraph Cloud:
+    - [ ] Create/verify LangSmith account
+    - [ ] Set up GitHub repository for deployment
+    - [ ] Configure required environment variables:
+      - [ ] OPENAI_API_KEY
+      - [ ] LANGSMITH_API_KEY
+      - [ ] LANGSMITH_PROJECT
+      - [ ] Other app-specific variables
+    - [ ] Deploy via LangGraph Platform UI
+    - [ ] Verify deployment in LangGraph Studio
+- [~] Verify environment setup
+  - [x] Test OpenAI API connectivity
+  - [x] Verify Supabase connection and permissions
+  - [x] Configure environment validation
+  - [ ] Set up production environment:
+    - [ ] Configure production API endpoints
+    - [ ] Set up production environment variables in LangGraph Cloud
+    - [ ] Configure production secrets
+- [~] Pipeline validation
+  - [x] Test end-to-end message processing
+  - [x] Verify token usage tracking
+  - [ ] Test in production environment:
+    - [ ] Test API endpoints using LangGraph SDK
+    - [ ] Verify streaming responses
+    - [ ] Test error handling and retries
+  - [ ] Set up CI/CD pipeline:
+    - [ ] Configure GitHub Actions for automated deployment
+    - [ ] Set up deployment environments (staging/production)
+    - [ ] Add deployment tests
+- [~] Monitoring setup
+  - [x] Add request ID based logging
+  - [x] Set up error tracking
+  - [x] Configure LangSmith tracing (development)
+  - [ ] Set up production monitoring:
+    - [ ] Configure LangSmith tracing in production
+    - [ ] Set up error alerting
+    - [ ] Monitor API usage and performance
+    - [ ] Configure resource scaling
+
+## 5. Database Schema Updates
 - [x] Add embedding-related tables:
 ```sql
 -- Document Embeddings
@@ -156,7 +206,7 @@ CREATE TABLE public.ticket_context_embeddings (
 );
 ```
 
-## 5. Security & Access Control
+## 6. Security & Access Control
 - [ ] Implement RLS policies for new tables:
 ```sql
 -- Document Embeddings
@@ -188,25 +238,25 @@ CREATE POLICY "Org members can access their document embeddings"
 -- Similar policies for conversation and ticket embeddings
 ```
 
-## 6. Integration Testing
+## 7. Integration Testing
 - [ ] Set up test environment with sample data
 - [ ] Create test suite for embedding generation
 - [ ] Test vector similarity search performance
 - [ ] Verify RLS policies are working correctly
 
-## 7. Monitoring & Maintenance
+## 8. Monitoring & Maintenance
 - [ ] Set up logging for embedding generation
 - [ ] Create monitoring for embedding table size
 - [ ] Implement cleanup policies for old embeddings
 - [ ] Add error handling and retry mechanisms
 
-## 8. Documentation
+## 9. Documentation
 - [ ] Document embedding generation process
 - [ ] Create API documentation for vector search endpoints
 - [ ] Document security policies and access patterns
 - [ ] Add maintenance procedures
 
-re## Next Steps
+## Next Steps
 After completing this checklist, proceed to Phase Two: Memory & Multi-Step Conversations implementation.
 
 ## Notes
