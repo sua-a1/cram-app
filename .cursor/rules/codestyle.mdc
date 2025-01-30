@@ -1,0 +1,35 @@
+---
+description: Code Style
+globs: *.tsx
+---
+
+• Write functional, type-safe TS: prefer iteration, pure functions, minimal braces.  
+
+• Validate inputs on the server.  
+
+• Follow function and naming principles:
+
+  – Keep functions small, focused, and with a single responsibility
+
+  – Use descriptive, action-oriented names for functions (e.g., fetchUserData, validateInput)
+
+  – Name variables and classes to clearly indicate their purpose and content
+
+  – Use TypeScript types that precisely mirror database schemas
+
+• Documentation and logging:
+
+  – Prefer compiler-checked documentation through descriptive TypeScript types
+
+  – Add strategic, minimal comments only for complex business logic or non-obvious decisions
+
+  – Create meaningful, contextual log messages for important operations and error states
+
+  – Document public APIs and complex interfaces, but let clean code speak for itself
+
+(See [@docs/Next.js Rules.md](#))
+
+• Always check [@docs/prd.md](#) and [@docs/AI Workflow Overview.md](#) for final project requirements.  
+
+• Escalate or clarify conflicts when necessary.  
+

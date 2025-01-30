@@ -1,0 +1,12 @@
+---
+description: Rules for directory & initialization 
+globs: 
+---
+
+- Confirm you are in "cram-app" before every task.  
+
+- Read .cursorrules and [@docs/prd.md](mdc:#).  
+
+- Follow the steps in [@docs/AI Workflow Overview.md](mdc:#) (Task Initialization, Context Management, etc.).  
+
+- Avoid unrelated changes unless explicitly requested.

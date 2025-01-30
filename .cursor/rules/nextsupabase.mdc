@@ -1,0 +1,12 @@
+---
+description: Next.js and Supabase best practices
+globs: 
+---
+• For data fetching, use server components in the Next.js 13 "app" directory; only "use client" when necessary.  
+
+• Store secrets/keys server-side; RLS-protected data in Supabase.  
+
+• Use edge functions minimally; prefer server actions for heavier logic.  
+
+(See [@Next.js Rules.md](mdc:#) and [@docs/SupabaseIntegrationRules.md](mdc:#))
+

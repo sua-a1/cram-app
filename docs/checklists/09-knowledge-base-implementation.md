@@ -120,10 +120,9 @@ This checklist outlines the implementation of a Knowledge Base system where orga
 - [ ] Performance testing
 
 ## 9. Documentation
-- [ ] API documentation
+- [ ] Any API or schema documentation updates
 - [ ] Usage guidelines
 - [ ] Component documentation
-- [ ] Deployment guide
 
 ## Future Considerations
 - [ ] Integration with ticket system for quick knowledge base references

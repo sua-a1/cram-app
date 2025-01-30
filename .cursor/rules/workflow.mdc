@@ -1,0 +1,26 @@
+---
+description: Workflow outline, task/context, execution/coding etc. 
+globs: 
+---
+
+1. Task Initialization  
+
+   – Clarify user goals, open/update session logs, define success criteria.  
+
+2. Context Management  
+
+   – Use list_dir, file_search, codebase_search, grep_search; request missing context.  
+
+3. Execution & Coding  
+
+   – Conform to guidelines from [@docs/nextjs-rules.md](mdc:#), [@docs/Next Supabase Rules.md](mdc:#), [@docs/Next.js Rules.md](mdc:#), [@docs/Next.js Rules With Edge.md](mdc:#), and [@docs/Codebase Organization Rules.md](mdc:#).  
+
+   – Keep commits small, logical, descriptive.  
+
+4. Verification  
+
+   – Update session notes, tests, and relevant docs ([@docs/project-folder-structure.md](mdc:#), [@docs/api-routes.md](mdc:#)).  
+
+5. Conclusion  
+
+   – Summarize changes, confirm alignment with rule files, finalize tasks.

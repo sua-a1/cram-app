@@ -775,3 +775,151 @@ CREATE POLICY "Users can view document categories"
     )
   );
 ```
+
+## AI Agent & Embeddings
+
+### Document Embeddings
+```sql
+CREATE TABLE public.document_embeddings (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    document_id uuid REFERENCES public.knowledge_documents(id) ON DELETE CASCADE,
+    embedding vector(1536),  -- For OpenAI embeddings
+    chunk_index integer,
+    chunk_text text,
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Create index for vector similarity search
+CREATE INDEX ON public.document_embeddings 
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Enable RLS
+ALTER TABLE public.document_embeddings ENABLE ROW LEVEL SECURITY;
+
+-- Add updated_at trigger
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON public.document_embeddings
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+```
+
+### Conversation Embeddings
+```sql
+CREATE TABLE public.conversation_embeddings (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    ticket_id uuid REFERENCES public.tickets(id) ON DELETE CASCADE,
+    message_id uuid REFERENCES public.ticket_messages(id) ON DELETE CASCADE,
+    embedding vector(1536),
+    context_window text,    -- The actual text that was embedded
+    created_at timestamptz DEFAULT now()
+);
+
+-- Create index for vector similarity search
+CREATE INDEX ON public.conversation_embeddings 
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Enable RLS
+ALTER TABLE public.conversation_embeddings ENABLE ROW LEVEL SECURITY;
+```
+
+### Ticket Context Embeddings
+```sql
+CREATE TABLE public.ticket_context_embeddings (
+    id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    ticket_id uuid REFERENCES public.tickets(id) ON DELETE CASCADE,
+    embedding vector(1536),
+    metadata jsonb DEFAULT '{}'::jsonb,
+    created_at timestamptz DEFAULT now(),
+    updated_at timestamptz DEFAULT now()
+);
+
+-- Create index for vector similarity search
+CREATE INDEX ON public.ticket_context_embeddings 
+USING ivfflat (embedding vector_cosine_ops)
+WITH (lists = 100);
+
+-- Enable RLS
+ALTER TABLE public.ticket_context_embeddings ENABLE ROW LEVEL SECURITY;
+
+-- Add updated_at trigger
+CREATE TRIGGER set_timestamp
+BEFORE UPDATE ON public.ticket_context_embeddings
+FOR EACH ROW
+EXECUTE FUNCTION public.handle_updated_at();
+```
+
+### Row Level Security Policies
+```sql
+-- Document Embeddings Policies
+CREATE POLICY "Public access to embeddings of public documents"
+    ON public.document_embeddings FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.knowledge_documents
+            WHERE id = document_embeddings.document_id
+            AND is_public = true
+            AND status = 'published'
+        )
+    );
+
+CREATE POLICY "Org members can access their document embeddings"
+    ON public.document_embeddings FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.knowledge_documents d
+            JOIN public.profiles p ON p.org_id = d.org_id
+            WHERE d.id = document_embeddings.document_id
+            AND p.user_id = auth.uid()
+            AND p.role IN ('admin', 'employee')
+        )
+    );
+
+-- Conversation Embeddings Policies
+CREATE POLICY "Users can access embeddings of their conversations"
+    ON public.conversation_embeddings FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.tickets t
+            WHERE t.id = conversation_embeddings.ticket_id
+            AND (
+                t.user_id = auth.uid() OR
+                EXISTS (
+                    SELECT 1 FROM public.profiles p
+                    WHERE p.user_id = auth.uid()
+                    AND p.org_id = t.handling_org_id
+                    AND p.role IN ('admin', 'employee')
+                )
+            )
+        )
+    );
+
+-- Ticket Context Embeddings Policies
+CREATE POLICY "Users can access embeddings of their tickets"
+    ON public.ticket_context_embeddings FOR SELECT
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.tickets t
+            WHERE t.id = ticket_context_embeddings.ticket_id
+            AND (
+                t.user_id = auth.uid() OR
+                EXISTS (
+                    SELECT 1 FROM public.profiles p
+                    WHERE p.user_id = auth.uid()
+                    AND p.org_id = t.handling_org_id
+                    AND p.role IN ('admin', 'employee')
+                )
+            )
+        )
+    );
+```
+
+### Notes on Embedding Tables
+- All vector columns use dimension 1536 for OpenAI embeddings
+- IVFFlat indexes are used for efficient similarity search
+- RLS policies ensure proper access control
+- Automatic timestamp management for tracking changes
+- Cascading deletes ensure referential integrity

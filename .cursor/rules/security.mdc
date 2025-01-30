@@ -1,0 +1,11 @@
+---
+description: Security & Environment 
+globs: 
+---
+
+• Use .env for sensitive data on the server; never expose secrets to the client.  
+
+• Don't alter schemas unless specifically asked.  
+
+(See [@docs/prd.md](mdc:#) and [@docs/AI Workflow Overview.md](mdc:#))
+

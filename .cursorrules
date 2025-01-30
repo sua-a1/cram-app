@@ -8,7 +8,7 @@ References:
 • [@docs/SupabaseIntegrationRules.md](#)  
 • [@docs/Next.js Rules.md](#)  
 • [@docs/Codebase Organization Rules.md](#)  
-• Agent Core Rules (Notepad Context)
+
 
 --------------------------------------------------------------------------------
 
@@ -40,7 +40,7 @@ References:
 • For data fetching, use server components in the Next.js 13 "app" directory; only "use client" when necessary.  
 • Store secrets/keys server-side; RLS-protected data in Supabase.  
 • Use edge functions minimally; prefer server actions for heavier logic.  
-(See [@docs/Next Supabase Rules.md](#) and [@docs/Next.js Rules With Edge.md](#))
+(See [@Next.js Rules.md](#) and [@docs/SupabaseIntegrationRules.md](#))
 
 --------------------------------------------------------------------------------
 
@@ -53,8 +53,6 @@ References:
 • The project uses PowerShell as the default terminal.
 
 (See [@docs/Codebase Organization Rules.md](#))
-(See [@docs/ui-components.md](#))
-
 --------------------------------------------------------------------------------
 
 ## 5. Security & Environment
@@ -68,6 +66,16 @@ References:
 • Provide concise, descriptive commit messages; do not mix unrelated changes.  
 • Write functional, type-safe TS: prefer iteration, pure functions, minimal braces.  
 • Validate inputs on the server.  
+• Follow function and naming principles:
+  – Keep functions small, focused, and with a single responsibility
+  – Use descriptive, action-oriented names for functions (e.g., fetchUserData, validateInput)
+  – Name variables and classes to clearly indicate their purpose and content
+  – Use TypeScript types that precisely mirror database schemas
+• Documentation and logging:
+  – Prefer compiler-checked documentation through descriptive TypeScript types
+  – Add strategic, minimal comments only for complex business logic or non-obvious decisions
+  – Create meaningful, contextual log messages for important operations and error states
+  – Document public APIs and complex interfaces, but let clean code speak for itself
 (See [@docs/Next.js Rules.md](#))
 
 --------------------------------------------------------------------------------
