@@ -12,10 +12,7 @@
     "test": "vitest",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui",
-    "deploy:langgraph": "tsx scripts/deploy-langgraph.ts",
-    "test:langgraph": "tsx scripts/deploy-langgraph.ts test",
-    "serve:langgraph": "tsx scripts/deploy-langgraph.ts serve"
+    "test:ui": "vitest --ui"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

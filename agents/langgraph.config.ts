@@ -29,6 +29,7 @@ interface LangGraphConfig {
     description?: string;
     repository?: string;
   };
+  dependencies?: string[];
 }
 
 // Define the LangGraph Cloud configuration
@@ -39,6 +40,12 @@ const langGraphConfig: LangGraphConfig = {
     description: 'Cram App LangGraph API',
     repository: 'https://github.com/sua-a1/cram-app'
   },
+  dependencies: [
+    'langchain>=0.1.0',
+    'openai>=1.0.0',
+    'langsmith>=0.0.69',
+    'langgraph>=0.0.20'
+  ],
   endpoints: [
     {
       path: '/hello',

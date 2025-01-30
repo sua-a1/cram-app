@@ -55,7 +55,5 @@ function validateEnv(): Env {
 }
 
 // Export validated environment and types
-module.exports = {
-  env: validateEnv(),
-  validateEnv,
-}; 
+export const env = validateEnv();
+export { validateEnv }; 
