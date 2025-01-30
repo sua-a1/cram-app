@@ -101,20 +101,41 @@ export function chunkText(
 }
 
 /**
- * Generates embeddings for multiple chunks of text
+ * Generates embeddings for multiple chunks of text in batches
  */
 export async function generateEmbeddings(chunks: TextChunk[], onProgress?: (phase: string, completed: number, total: number) => void): Promise<EmbeddingResult> {
   try {
     const vectors: EmbeddingVector[] = [];
+    let completed = 0;
     
-    // Process chunks in batches to avoid rate limits
-    for (const chunk of chunks) {
-      const embedding = await generateEmbedding(chunk.text);
-      vectors.push({
-        embedding,
-        text: chunk.text,
-        metadata: chunk.metadata,
+    // Process chunks in batches
+    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
+      const batch = chunks.slice(i, i + BATCH_SIZE);
+      const batchTexts = batch.map(chunk => chunk.text);
+      
+      // Generate embeddings for the entire batch
+      const response = await openai.embeddings.create({
+        model: 'text-embedding-ada-002',
+        input: batchTexts,
       });
+
+      // Add vectors with their metadata
+      batch.forEach((chunk, index) => {
+        vectors.push({
+          embedding: response.data[index].embedding,
+          text: chunk.text,
+          metadata: chunk.metadata,
+        });
+      });
+
+      // Update progress
+      completed += batch.length;
+      onProgress?.('Generating embeddings', completed, chunks.length);
+
+      // Add a small delay between batches to avoid rate limits
+      if (i + BATCH_SIZE < chunks.length) {
+        await sleep(100);
+      }
     }
     
     return {
