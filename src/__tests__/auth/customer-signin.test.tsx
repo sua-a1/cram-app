@@ -2,14 +2,14 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SignInForm } from '@/components/auth/signin-form';
 import { ToastProvider } from '../mocks/toast-provider';
-import { createClient } from '@supabase/supabase-js';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 // Mock next/navigation
-jest.mock('next/navigation', () => ({
+vi.mock('next/navigation', () => ({
   useRouter() {
     return {
-      push: jest.fn(),
-      refresh: jest.fn(),
+      push: vi.fn(),
+      refresh: vi.fn(),
     };
   },
   useSearchParams() {
@@ -20,19 +20,19 @@ jest.mock('next/navigation', () => ({
 }));
 
 // Mock toast hook
-const mockToast = jest.fn();
-jest.mock('@/hooks/use-toast', () => ({
+const mockToast = vi.fn();
+vi.mock('@/hooks/use-toast', () => ({
   useToast: () => ({
     toast: mockToast,
   }),
 }));
 
 // Mock Supabase client
-const mockSignInWithPassword = jest.fn();
-jest.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({
+const mockSignInWithPassword = vi.fn();
+vi.mock('@supabase/ssr', () => ({
+  createBrowserClient: () => ({
     auth: {
-      signInWithPassword: (...args: any[]) => mockSignInWithPassword(...args),
+      signInWithPassword: mockSignInWithPassword,
     },
   }),
 }));
@@ -47,7 +47,7 @@ function renderWithProviders(ui: React.ReactElement) {
 
 describe('Customer Signin Flow', () => {
   beforeEach(() => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should render signin form with all fields', () => {

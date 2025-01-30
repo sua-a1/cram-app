@@ -831,14 +831,16 @@ ALTER TABLE public.conversation_embeddings ENABLE ROW LEVEL SECURITY;
 CREATE TABLE public.ticket_context_embeddings (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     ticket_id uuid REFERENCES public.tickets(id) ON DELETE CASCADE,
-    embedding vector(1536),
+    embedding vector(1536) NOT NULL,
     metadata jsonb DEFAULT '{}'::jsonb,
-    created_at timestamptz DEFAULT now(),
-    updated_at timestamptz DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    CONSTRAINT ticket_context_embeddings_ticket_id_key UNIQUE (ticket_id)
 );
 
--- Create index for vector similarity search
-CREATE INDEX ON public.ticket_context_embeddings 
+-- Add index for similarity search
+CREATE INDEX IF NOT EXISTS ticket_context_embeddings_embedding_idx
+ON public.ticket_context_embeddings
 USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
 
@@ -846,75 +848,91 @@ WITH (lists = 100);
 ALTER TABLE public.ticket_context_embeddings ENABLE ROW LEVEL SECURITY;
 
 -- Add updated_at trigger
-CREATE TRIGGER set_timestamp
-BEFORE UPDATE ON public.ticket_context_embeddings
-FOR EACH ROW
-EXECUTE FUNCTION public.handle_updated_at();
-```
+CREATE TRIGGER handle_updated_at
+    BEFORE UPDATE ON public.ticket_context_embeddings
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_updated_at();
 
-### Row Level Security Policies
-```sql
--- Document Embeddings Policies
-CREATE POLICY "Public access to embeddings of public documents"
-    ON public.document_embeddings FOR SELECT
+-- Function to match similar tickets based on context embeddings
+CREATE OR REPLACE FUNCTION match_tickets(
+    query_embedding vector(1536),
+    match_threshold float DEFAULT 0.7,
+    match_count int DEFAULT 5
+)
+RETURNS TABLE (
+    ticket_id uuid,
+    similarity float,
+    subject text,
+    status text,
+    priority text,
+    created_at timestamptz
+)
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    RETURN QUERY
+    SELECT
+        t.id as ticket_id,
+        1 - (tce.embedding <=> query_embedding) as similarity,
+        t.subject,
+        t.status,
+        t.priority,
+        t.created_at
+    FROM ticket_context_embeddings tce
+    JOIN tickets t ON t.id = tce.ticket_id
+    WHERE 1 - (tce.embedding <=> query_embedding) > match_threshold
+    ORDER BY similarity DESC
+    LIMIT match_count;
+END;
+$$;
+
+-- RLS Policies for ticket context embeddings
+CREATE POLICY "Users can view embeddings for tickets they have access to"
+    ON public.ticket_context_embeddings
+    FOR SELECT
+    TO authenticated
     USING (
         EXISTS (
-            SELECT 1 FROM public.knowledge_documents
-            WHERE id = document_embeddings.document_id
-            AND is_public = true
-            AND status = 'published'
+            SELECT 1 FROM tickets t
+            WHERE t.id = ticket_id
+            AND (
+                t.user_id = auth.uid()
+                OR EXISTS (
+                    SELECT 1 FROM profiles p
+                    WHERE p.user_id = auth.uid()
+                    AND p.org_id = t.handling_org_id
+                    AND p.role IN ('admin', 'employee')
+                )
+            )
         )
     );
 
-CREATE POLICY "Org members can access their document embeddings"
-    ON public.document_embeddings FOR SELECT
+CREATE POLICY "Employees and admins can create/update embeddings"
+    ON public.ticket_context_embeddings
+    FOR ALL
+    TO authenticated
     USING (
         EXISTS (
-            SELECT 1 FROM public.knowledge_documents d
-            JOIN public.profiles p ON p.org_id = d.org_id
-            WHERE d.id = document_embeddings.document_id
+            SELECT 1 FROM tickets t
+            JOIN profiles p ON p.org_id = t.handling_org_id
+            WHERE t.id = ticket_id
+            AND p.user_id = auth.uid()
+            AND p.role IN ('admin', 'employee')
+        )
+    )
+    WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM tickets t
+            JOIN profiles p ON p.org_id = t.handling_org_id
+            WHERE t.id = ticket_id
             AND p.user_id = auth.uid()
             AND p.role IN ('admin', 'employee')
         )
     );
 
--- Conversation Embeddings Policies
-CREATE POLICY "Users can access embeddings of their conversations"
-    ON public.conversation_embeddings FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.tickets t
-            WHERE t.id = conversation_embeddings.ticket_id
-            AND (
-                t.user_id = auth.uid() OR
-                EXISTS (
-                    SELECT 1 FROM public.profiles p
-                    WHERE p.user_id = auth.uid()
-                    AND p.org_id = t.handling_org_id
-                    AND p.role IN ('admin', 'employee')
-                )
-            )
-        )
-    );
-
--- Ticket Context Embeddings Policies
-CREATE POLICY "Users can access embeddings of their tickets"
-    ON public.ticket_context_embeddings FOR SELECT
-    USING (
-        EXISTS (
-            SELECT 1 FROM public.tickets t
-            WHERE t.id = ticket_context_embeddings.ticket_id
-            AND (
-                t.user_id = auth.uid() OR
-                EXISTS (
-                    SELECT 1 FROM public.profiles p
-                    WHERE p.user_id = auth.uid()
-                    AND p.org_id = t.handling_org_id
-                    AND p.role IN ('admin', 'employee')
-                )
-            )
-        )
-    );
+-- Grant access to authenticated users
+GRANT ALL ON public.ticket_context_embeddings TO authenticated;
+GRANT ALL ON FUNCTION match_tickets TO authenticated;
 ```
 
 ### Notes on Embedding Tables

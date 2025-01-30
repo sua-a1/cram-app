@@ -392,4 +392,84 @@ describe('Conversation Embeddings', () => {
       expect(embeddings).toHaveLength(1)
     }, 60000) // Increased timeout
   })
+
+  describe('Cleanup', () => {
+    it('should delete embeddings when messages are deleted', async () => {
+      // Create and process a message
+      const message = createTestMessage()
+      const { error: insertError } = await supabase.from('ticket_messages').insert(message)
+      expect(insertError).toBeNull()
+      
+      await processNewMessage(convertToMessageContext(message))
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Verify embedding exists
+      const { data: beforeDelete } = await supabase
+        .from('conversation_embeddings')
+        .select('*')
+        .eq('message_id', message.id)
+      expect(beforeDelete).toHaveLength(1)
+
+      // Delete the message
+      const { error: deleteError } = await supabase
+        .from('ticket_messages')
+        .delete()
+        .eq('id', message.id)
+      expect(deleteError).toBeNull()
+
+      // Verify embedding was deleted
+      const { data: afterDelete } = await supabase
+        .from('conversation_embeddings')
+        .select('*')
+        .eq('message_id', message.id)
+      expect(afterDelete).toHaveLength(0)
+    }, 30000)
+
+    it('should delete embeddings when tickets are deleted', async () => {
+      // Create a new ticket and messages
+      const newTicketId = uuidv4()
+      const { error: ticketError } = await supabase
+        .from('tickets')
+        .insert({
+          id: newTicketId,
+          subject: 'Test Cleanup Ticket',
+          user_id: testUserId,
+          handling_org_id: testOrgId,
+          status: 'open',
+          priority: 'medium'
+        })
+      expect(ticketError).toBeNull()
+
+      // Create multiple messages for this ticket
+      const messages = Array.from({ length: 3 }, () => createTestMessage({ ticket_id: newTicketId }))
+      for (const msg of messages) {
+        const { error } = await supabase.from('ticket_messages').insert(msg)
+        expect(error).toBeNull()
+        await processNewMessage(convertToMessageContext(msg))
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 2000))
+
+      // Verify embeddings exist
+      const { data: beforeDelete } = await supabase
+        .from('conversation_embeddings')
+        .select('*')
+        .eq('ticket_id', newTicketId)
+      expect(beforeDelete?.length).toBe(3)
+
+      // Delete the ticket
+      const { error: deleteError } = await supabase
+        .from('tickets')
+        .delete()
+        .eq('id', newTicketId)
+      expect(deleteError).toBeNull()
+
+      // Verify all embeddings were deleted
+      const { data: afterDelete } = await supabase
+        .from('conversation_embeddings')
+        .select('*')
+        .eq('ticket_id', newTicketId)
+      expect(afterDelete).toHaveLength(0)
+    }, 60000)
+  })
 }) 

@@ -87,14 +87,38 @@ This checklist covers the initial setup of the AI Agent within the Cram project,
       - [x] Deletion cascades to embeddings
 
 ### 3.2 Conversation History Embeddings
-- [ ] Implement embedding generation for ticket messages
-- [ ] Create utility for conversation context retrieval
-- [ ] Set up efficient storage and cleanup policies
+- [x] Implement embedding generation for ticket messages
+  - [x] Create utility for processing new messages
+  - [x] Implement batch processing for existing messages
+  - [x] Handle both customer and employee messages with proper prefixes
+  - [x] Maintain conversation context with previous messages
+  - [x] Implement retry logic and error handling
+- [x] Create utility for conversation context retrieval
+  - [x] Sort messages by creation date
+  - [x] Include configurable context window size (default: 10 messages)
+  - [x] Proper role-based prefixing (CUSTOMER/EMPLOYEE)
+  - [x] Text sanitization while preserving markdown
+- [x] Set up efficient storage and cleanup policies
+  - [x] Automatic cleanup through CASCADE DELETE with tickets/messages
+  - [x] Single embedding per message to minimize storage
+  - [x] Store context window with embedding for debugging
+  - [x] Skip messages that already have embeddings
+  - [x] Realtime processing of new messages via Supabase subscription
+  - [x] Batch processing utility for backfilling embeddings
 
 ### 3.3 Ticket Context Embeddings
-- [ ] Create embeddings for ticket metadata
-- [ ] Implement relevance search for similar tickets
-- [ ] Set up automatic embedding updates on ticket changes
+- [x] Create embeddings for ticket metadata
+  - [x] Implemented ticket context generation
+  - [x] Added embedding generation with retry logic
+  - [x] Created real-time updates for ticket changes
+- [x] Implement relevance search for similar tickets
+  - [x] Added PostgreSQL similarity search function
+  - [x] Created findSimilarTickets utility
+  - [x] Added proper error handling and types
+- [x] Set up automatic embedding updates on ticket changes
+  - [x] Added Supabase real-time subscription
+  - [x] Implemented automatic updates on ticket modifications
+  - [x] Added batch processing for existing tickets
 
 ## 4. Database Schema Updates
 - [x] Add embedding-related tables:
