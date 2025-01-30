@@ -12,6 +12,8 @@ import type { KnowledgeDocument } from '@/types/knowledge';
 import dynamic from 'next/dynamic';
 import JSZip from 'jszip';
 import { convertWordDocument } from '@/app/actions/knowledge';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 // Dynamically import PDF viewer
 const PDFViewer = dynamic(() => import('./pdf-viewer'), {
@@ -32,6 +34,8 @@ export function DocumentView({ document, isAdmin }: DocumentViewProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [convertedContent, setConvertedContent] = useState<string | null>(null);
+  const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     const loadContent = async () => {
@@ -149,6 +153,14 @@ export function DocumentView({ document, isAdmin }: DocumentViewProps) {
     );
   };
 
+  const handleUnauthorizedAction = () => {
+    toast({
+      title: "Permission Denied",
+      description: "Only administrators can edit documents. Please contact your administrator for assistance.",
+      variant: "destructive"
+    });
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -161,12 +173,17 @@ export function DocumentView({ document, isAdmin }: DocumentViewProps) {
             Back to Knowledge Center
           </Link>
         </Button>
-        {isAdmin && (
+        {isAdmin ? (
           <Button asChild>
             <Link href={`/org/knowledge/${document.id}/edit`}>
               <Pencil className="mr-2 h-4 w-4" />
               Edit Document
             </Link>
+          </Button>
+        ) : (
+          <Button onClick={handleUnauthorizedAction}>
+            <Pencil className="mr-2 h-4 w-4" />
+            Edit Document
           </Button>
         )}
       </div>

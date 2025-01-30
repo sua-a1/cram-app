@@ -98,6 +98,8 @@ export type CreateDocumentRequest = {
 
 export interface UpdateDocumentRequest extends Partial<CreateDocumentRequest> {
   id: string;
+  file_url?: string;
+  file_type?: string;
 }
 
 export interface CreateCategoryRequest {

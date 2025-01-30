@@ -136,7 +136,7 @@ export async function createDocument(request: CreateDocumentRequest): Promise<Do
       if (categoryError) throw categoryError;
     }
 
-    revalidatePath('/org/[orgId]/knowledge');
+    revalidatePath('/org/knowledge');
     return { data: document, error: null };
   } catch (error) {
     console.error('Error creating document:', error);
@@ -250,7 +250,7 @@ export async function updateDocument(request: UpdateDocumentRequest): Promise<Do
       }
     }
 
-    revalidatePath('/org/[orgId]/knowledge');
+    revalidatePath('/org/knowledge');
     return { data: document, error: null };
   } catch (error) {
     console.error('Error updating document:', error);
@@ -300,7 +300,7 @@ export async function deleteDocument(id: string): Promise<{ error: Error | null 
 
     if (deleteError) throw deleteError;
 
-    revalidatePath('/org/[orgId]/knowledge');
+    revalidatePath('/org/knowledge');
     return { error: null };
   } catch (error) {
     console.error('Error deleting document:', error);
@@ -426,7 +426,7 @@ export async function createCategory(request: CreateCategoryRequest): Promise<Ca
 
     if (error) throw error;
 
-    revalidatePath('/org/[orgId]/knowledge/categories');
+    revalidatePath('/org/knowledge/categories');
     return { data: category, error: null };
   } catch (error) {
     console.error('Error creating category:', error);
@@ -456,7 +456,7 @@ export async function updateCategory(request: UpdateCategoryRequest): Promise<Ca
 
     if (error) throw error;
 
-    revalidatePath('/org/[orgId]/knowledge/categories');
+    revalidatePath('/org/knowledge/categories');
     return { data: category, error: null };
   } catch (error) {
     console.error('Error updating category:', error);
@@ -481,7 +481,7 @@ export async function deleteCategory(id: string): Promise<{ error: Error | null 
 
     if (error) throw error;
 
-    revalidatePath('/org/[orgId]/knowledge/categories');
+    revalidatePath('/org/knowledge/categories');
     return { error: null };
   } catch (error) {
     console.error('Error deleting category:', error);

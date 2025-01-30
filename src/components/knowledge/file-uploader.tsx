@@ -17,14 +17,17 @@ import { CategorySelector } from './category-selector';
 import type { DocumentStatus, KnowledgeCategory, SerializedFile } from '@/types/knowledge';
 
 interface FileUploaderProps {
-  onUploadComplete?: () => void;
+  onUploadComplete?: (url: string, type: string) => void;
   categories: KnowledgeCategory[];
+  existingFile?: string | null;
+  isPublic?: boolean;
+  mode?: 'create' | 'edit';
 }
 
-export function FileUploader({ onUploadComplete, categories }: FileUploaderProps) {
+export function FileUploader({ onUploadComplete, categories, existingFile, isPublic: defaultIsPublic, mode = 'create' }: FileUploaderProps) {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [isPublic, setIsPublic] = useState(false);
+  const [isPublic, setIsPublic] = useState(defaultIsPublic || false);
   const [status, setStatus] = useState<DocumentStatus>('draft');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -33,7 +36,7 @@ export function FileUploader({ onUploadComplete, categories }: FileUploaderProps
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0];
-    if (!file || !title) return;
+    if (!file || (mode === 'create' && !title)) return;
 
     setUploading(true);
     setProgress(0);
@@ -63,26 +66,28 @@ export function FileUploader({ onUploadComplete, categories }: FileUploaderProps
         data: fileData
       };
 
-      const formData = {
-        title,
-        content,
-        file: serializedFile,
-        is_public: isPublic,
-        status,
-        categoryIds: selectedCategories,
-      };
+      if (mode === 'create') {
+        const formData = {
+          title,
+          content,
+          file: serializedFile,
+          is_public: isPublic,
+          status,
+          categoryIds: selectedCategories,
+        };
 
-      const { error } = await createDocument(formData);
-
-      if (error) throw error;
+        const { error } = await createDocument(formData);
+        if (error) throw error;
+      }
 
       setProgress(100);
       toast({
         title: 'Success',
-        description: 'Document uploaded successfully.',
+        description: 'File uploaded successfully.',
       });
 
-      onUploadComplete?.();
+      // Pass the file URL and type to the callback
+      onUploadComplete?.(serializedFile.data, serializedFile.type);
     } catch (error: any) {
       console.error('Error uploading document:', error);
       toast({
@@ -94,7 +99,7 @@ export function FileUploader({ onUploadComplete, categories }: FileUploaderProps
       setUploading(false);
       setProgress(0);
     }
-  }, [title, content, isPublic, status, selectedCategories, toast, onUploadComplete]);
+  }, [title, content, isPublic, status, selectedCategories, toast, onUploadComplete, mode]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -107,75 +112,82 @@ export function FileUploader({ onUploadComplete, categories }: FileUploaderProps
       'text/markdown': ['.md'],
     },
     multiple: false,
-    disabled: uploading || !title,
+    disabled: uploading || (mode === 'create' && !title),
   });
+
+  // Only show the form fields in create mode
+  const showFormFields = mode === 'create';
 
   return (
     <div className="space-y-6">
       <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="title" className="required">Title</Label>
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Document title"
-            disabled={uploading}
-            required
-          />
-        </div>
+        {showFormFields && (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor="title" className="required">Title</Label>
+              <Input
+                id="title"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Document title"
+                disabled={uploading}
+                required
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="content">Description</Label>
-          <Textarea
-            id="content"
-            value={content}
-            onChange={(e) => setContent(e.target.value)}
-            placeholder="Document description or summary"
-            disabled={uploading}
-          />
-        </div>
+            <div className="space-y-2">
+              <Label htmlFor="content">Description</Label>
+              <Textarea
+                id="content"
+                value={content}
+                onChange={(e) => setContent(e.target.value)}
+                placeholder="Document description or summary"
+                disabled={uploading}
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label>Categories</Label>
-          <CategorySelector
-            categories={categories}
-            selectedCategories={selectedCategories}
-            onSelectCategories={setSelectedCategories}
-            disabled={uploading}
-          />
-        </div>
+            <div className="space-y-2">
+              <Label>Categories</Label>
+              <CategorySelector
+                categories={categories}
+                selectedCategories={selectedCategories}
+                onSelectCategories={setSelectedCategories}
+                disabled={uploading}
+              />
+            </div>
 
-        <div className="space-y-2">
-          <Label>Status</Label>
-          <Select value={status} onValueChange={(value: DocumentStatus) => setStatus(value)} disabled={uploading}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="draft">Draft</SelectItem>
-              <SelectItem value="published">Published</SelectItem>
-              <SelectItem value="archived">Archived</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+            <div className="space-y-2">
+              <Label>Status</Label>
+              <Select value={status} onValueChange={(value: DocumentStatus) => setStatus(value)} disabled={uploading}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="published">Published</SelectItem>
+                  <SelectItem value="archived">Archived</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-        <div className="flex items-center space-x-2">
-          <Switch
-            id="public"
-            checked={isPublic}
-            onCheckedChange={setIsPublic}
-            disabled={uploading}
-          />
-          <Label htmlFor="public">Make document public</Label>
-        </div>
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="public"
+                checked={isPublic}
+                onCheckedChange={setIsPublic}
+                disabled={uploading}
+              />
+              <Label htmlFor="public">Make document public</Label>
+            </div>
+          </>
+        )}
 
         <div
           {...getRootProps()}
           className={cn(
             'border-2 border-dashed rounded-lg p-6 transition-colors',
             isDragActive ? 'border-primary bg-primary/5' : 'border-muted-foreground/25',
-            (!title || uploading) && 'pointer-events-none opacity-50'
+            (mode === 'create' && !title || uploading) && 'pointer-events-none opacity-50'
           )}
         >
           <input {...getInputProps()} />
@@ -187,7 +199,7 @@ export function FileUploader({ onUploadComplete, categories }: FileUploaderProps
             <p className="text-xs text-muted-foreground">
               Supported formats: PDF, Word, Text, Markdown (up to 50MB)
             </p>
-            {!title && (
+            {mode === 'create' && !title && (
               <p className="text-xs text-destructive">
                 Please enter a title before uploading
               </p>

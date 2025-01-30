@@ -19,6 +19,7 @@ import { FileUploader } from '@/components/knowledge/file-uploader'
 import { KnowledgeCenter } from './knowledge-center'
 import { CategorySelector } from '@/components/knowledge/category-selector'
 import { useRouter } from 'next/navigation'
+import { useToast } from '@/hooks/use-toast'
 
 interface KnowledgeCenterPageProps {
   initialDocuments: KnowledgeDocument[];
@@ -37,6 +38,7 @@ export default function KnowledgeCenterPage({
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const router = useRouter();
+  const { toast } = useToast();
 
   const filteredDocuments = initialDocuments.filter(doc => {
     const matchesSearch = searchQuery === '' || 
@@ -60,6 +62,16 @@ export default function KnowledgeCenterPage({
     router.refresh();
   };
 
+  const handleUnauthorizedAction = () => {
+    toast({
+      title: "Permission Denied",
+      description: "Only administrators can create or upload documents. Please contact your administrator for assistance.",
+      variant: "destructive"
+    });
+  };
+
+  const isAdmin = user?.role === 'admin';
+
   return (
     <div className="container mx-auto px-6 py-8 space-y-8">
       <div className="flex items-center justify-between">
@@ -73,29 +85,44 @@ export default function KnowledgeCenterPage({
           <h1 className="text-3xl font-bold">Knowledge Center</h1>
         </div>
         <div className="flex items-center gap-2">
-          <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
-            <DialogTrigger asChild>
-              <Button variant="outline">
+          {isAdmin ? (
+            <>
+              <Dialog open={isUploadOpen} onOpenChange={setIsUploadOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Document
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Upload Document</DialogTitle>
+                  </DialogHeader>
+                  <FileUploader 
+                    onUploadComplete={handleUploadComplete}
+                    categories={initialCategories}
+                  />
+                </DialogContent>
+              </Dialog>
+              <Button asChild>
+                <Link href="/org/knowledge/new">
+                  <Plus className="h-4 w-4 mr-2" />
+                  New Document
+                </Link>
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={handleUnauthorizedAction}>
                 <Upload className="mr-2 h-4 w-4" />
                 Upload Document
               </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Upload Document</DialogTitle>
-              </DialogHeader>
-              <FileUploader 
-                onUploadComplete={handleUploadComplete}
-                categories={initialCategories}
-              />
-            </DialogContent>
-          </Dialog>
-          <Button asChild>
-            <Link href="/org/knowledge/new">
-              <Plus className="h-4 w-4 mr-2" />
-              New Document
-            </Link>
-          </Button>
+              <Button onClick={handleUnauthorizedAction}>
+                <Plus className="h-4 w-4 mr-2" />
+                New Document
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -138,7 +165,7 @@ export default function KnowledgeCenterPage({
         categories={initialCategories}
         selectedCategories={selectedCategories}
         onSelectCategories={setSelectedCategories}
-        canCreate
+        canCreate={isAdmin}
       />
 
       <div className="bg-white rounded-lg border shadow-sm p-6">

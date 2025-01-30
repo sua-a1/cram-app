@@ -122,9 +122,32 @@ export default function DocumentEditPage({
     }
   };
 
-  const handleFileUpload = (url: string, type: string) => {
+  const handleFileUpload = async (url: string, type: string) => {
     setFileUrl(url);
     setFileType(type);
+    
+    // Update the document with the new file
+    try {
+      const { error } = await updateDocument({
+        id: params.id,
+        file_url: url,
+        file_type: type
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: 'Success',
+        description: 'File uploaded successfully.',
+      });
+    } catch (error: any) {
+      console.error('Error updating document:', error);
+      toast({
+        title: 'Error',
+        description: error?.message || 'Failed to update document with new file.',
+        variant: 'destructive',
+      });
+    }
   };
 
   const handleCreateCategory = async (data: { name: string; description?: string }) => {
@@ -275,6 +298,8 @@ export default function DocumentEditPage({
             existingFile={fileUrl}
             onUploadComplete={handleFileUpload}
             isPublic={isPublic}
+            categories={categories}
+            mode="edit"
           />
           {fileUrl && (
             <p className="text-sm text-muted-foreground">
