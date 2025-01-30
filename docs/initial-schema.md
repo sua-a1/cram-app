@@ -923,3 +923,49 @@ CREATE POLICY "Users can access embeddings of their tickets"
 - RLS policies ensure proper access control
 - Automatic timestamp management for tracking changes
 - Cascading deletes ensure referential integrity
+
+------------------------------------------------------------------------
+-- 12. CONVERSATION EMBEDDINGS
+------------------------------------------------------------------------
+-- Function to atomically upsert conversation embeddings
+CREATE OR REPLACE FUNCTION public.upsert_embedding(
+  p_message_id UUID,
+  p_ticket_id UUID,
+  p_embedding TEXT,
+  p_context_window TEXT
+) RETURNS void AS $$
+BEGIN
+  -- Delete any existing embedding for this message
+  DELETE FROM conversation_embeddings
+  WHERE message_id = p_message_id;
+
+  -- Insert the new embedding
+  INSERT INTO conversation_embeddings (
+    message_id,
+    ticket_id,
+    embedding,
+    context_window,
+    created_at
+  ) VALUES (
+    p_message_id,
+    p_ticket_id,
+    p_embedding::vector,  -- Cast the text to vector type
+    p_context_window,
+    NOW()
+  );
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create conversation_embeddings table
+CREATE TABLE IF NOT EXISTS public.conversation_embeddings (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  message_id uuid NOT NULL REFERENCES public.ticket_messages (id) ON DELETE CASCADE,
+  ticket_id uuid NOT NULL REFERENCES public.tickets (id) ON DELETE CASCADE,
+  embedding vector NOT NULL,  -- Using vector type for embeddings
+  context_window TEXT NOT NULL,  -- The text used to generate the embedding
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- Add indexes for conversation embeddings
+CREATE INDEX IF NOT EXISTS idx_conversation_embeddings_message_id ON public.conversation_embeddings(message_id);
+CREATE INDEX IF NOT EXISTS idx_conversation_embeddings_ticket_id ON public.conversation_embeddings(ticket_id);

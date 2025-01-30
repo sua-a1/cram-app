@@ -182,7 +182,7 @@ CREATE POLICY "Org members can access their document embeddings"
 - [ ] Document security policies and access patterns
 - [ ] Add maintenance procedures
 
-## Next Steps
+re## Next Steps
 After completing this checklist, proceed to Phase Two: Memory & Multi-Step Conversations implementation.
 
 ## Notes

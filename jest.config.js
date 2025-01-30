@@ -14,6 +14,7 @@ const customJestConfig = {
   },
   testMatch: [
     '**/__tests__/**/*.test.[jt]s?(x)',
+    '**/agents/tests/**/*.test.[jt]s?(x)',
   ],
 };
 

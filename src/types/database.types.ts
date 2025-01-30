@@ -411,6 +411,46 @@ export interface Database {
           }
         ]
       }
+      conversation_embeddings: {
+        Row: {
+          id: string
+          ticket_id: string
+          message_id: string
+          embedding: number[]
+          context_window: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          ticket_id: string
+          message_id: string
+          embedding: number[]
+          context_window: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          ticket_id?: string
+          message_id?: string
+          embedding?: number[]
+          context_window?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_embeddings_ticket_id_fkey"
+            columns: ["ticket_id"]
+            referencedRelation: "tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_embeddings_message_id_fkey"
+            columns: ["message_id"]
+            referencedRelation: "ticket_messages"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
     }
     Views: {
       [_ in never]: never
