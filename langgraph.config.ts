@@ -1,5 +1,5 @@
-const { run: helloWorldRun } = require('./workflows/hello-world');
-const { run: ticketProcessorRun } = require('./workflows/ticket-processor');
+const { run: helloWorldRun } = require('./agents/workflows/hello-world');
+const { run: ticketProcessorRun } = require('./agents/workflows/ticket-processor');
 
 // Define the LangGraph Cloud configuration type
 interface LangGraphEndpoint {
