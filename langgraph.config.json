@@ -12,38 +12,8 @@
     "langgraph>=0.0.20"
   ],
   "graphs": {
-    "hello": {
-      "path": "agents.workflows.hello_world:run",
-      "description": "Simple hello world agent for testing",
-      "config": {
-        "model": "gpt-4-1106-preview",
-        "temperature": 0.7,
-        "maxTokens": 1000
-      },
-      "metadata": {
-        "requires": {
-          "OPENAI_API_KEY": true,
-          "LANGSMITH_API_KEY": true,
-          "LANGSMITH_PROJECT": true
-        }
-      }
-    },
-    "process_ticket": {
-      "path": "agents.workflows.ticket_processor:run",
-      "description": "Process and respond to customer support tickets",
-      "config": {
-        "model": "gpt-4-1106-preview",
-        "temperature": 0.3,
-        "maxTokens": 2000
-      },
-      "metadata": {
-        "requires": {
-          "OPENAI_API_KEY": true,
-          "LANGSMITH_API_KEY": true,
-          "LANGSMITH_PROJECT": true
-        }
-      }
-    }
+    "hello_world": "agents.workflows.hello_world",
+    "ticket_processor": "agents.workflows.ticket_processor"
   },
   "environment": "development"
 } 
