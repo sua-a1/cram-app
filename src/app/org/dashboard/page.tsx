@@ -119,7 +119,7 @@ export default async function Dashboard() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Organization Header */}
       <header className="border-b">
         <div className="container mx-auto py-4">
           <div className="flex items-center justify-between">
@@ -131,6 +131,12 @@ export default async function Dashboard() {
                 <Button variant="outline">
                   <FileText className="mr-2 h-4 w-4" />
                   Templates
+                </Button>
+              </Link>
+              <Link href="/org/knowledge">
+                <Button variant="outline">
+                  <FileText className="mr-2 h-4 w-4" />
+                  Knowledge
                 </Button>
               </Link>
               <SignOutButton />

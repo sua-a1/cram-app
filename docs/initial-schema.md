@@ -588,4 +588,190 @@ GRANT ALL ON public.ticket_feedback TO authenticated;
 -- 8. Notification support
 -- 9. Ticket feedback support
 -- 10. Row Level Security policies
-------------------------------------------------------------------------
+
+## Knowledge Documents
+
+### Knowledge Documents
+```sql
+CREATE TABLE public.knowledge_documents (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  title text NOT NULL,
+  content text,
+  file_url text,
+  file_type text,
+  is_public boolean DEFAULT false,
+  created_by uuid REFERENCES public.profiles(user_id),
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now(),
+  status text DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived')),
+  metadata jsonb DEFAULT '{}'::jsonb
+);
+```
+
+### Knowledge Categories
+```sql
+CREATE TABLE public.knowledge_categories (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  org_id uuid REFERENCES public.organizations(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+```
+
+### Knowledge Document Categories (Junction Table)
+```sql
+CREATE TABLE public.knowledge_document_categories (
+  document_id uuid REFERENCES public.knowledge_documents(id) ON DELETE CASCADE,
+  category_id uuid REFERENCES public.knowledge_categories(id) ON DELETE CASCADE,
+  PRIMARY KEY (document_id, category_id)
+);
+```
+
+## Storage Buckets and Policies
+
+### Knowledge Documents Bucket
+```sql
+-- Create bucket for knowledge documents
+INSERT INTO storage.buckets (id, name)
+VALUES ('knowledge-documents', 'Knowledge Documents');
+
+-- Allow authenticated users to upload
+CREATE POLICY "Allow authenticated users to upload"
+ON storage.objects
+FOR INSERT
+TO authenticated
+WITH CHECK (bucket_id = 'knowledge-documents');
+
+-- Allow public read access
+CREATE POLICY "Allow public read access"
+ON storage.objects
+FOR SELECT
+TO public
+USING (bucket_id = 'knowledge-documents');
+```
+
+## Row Level Security (RLS) Policies
+
+### Knowledge Documents
+```sql
+-- Admins have full access to their organization's documents
+CREATE POLICY "Admins have full access to org documents"
+  ON public.knowledge_documents
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.org_id = knowledge_documents.org_id
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- Employees can view all documents in their organization
+CREATE POLICY "Employees can view org documents"
+  ON public.knowledge_documents
+  AS PERMISSIVE
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.org_id = knowledge_documents.org_id
+      AND profiles.role = 'employee'
+    )
+  );
+
+-- Customers can only view public published documents
+CREATE POLICY "Customers can view public published documents"
+  ON public.knowledge_documents
+  AS PERMISSIVE
+  FOR SELECT
+  TO authenticated
+  USING (
+    is_public = true
+    AND status = 'published'
+  );
+```
+
+### Knowledge Categories
+```sql
+-- Admins have full access to their organization's categories
+CREATE POLICY "Admins have full access to org categories"
+  ON public.knowledge_categories
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.org_id = knowledge_categories.org_id
+      AND profiles.role = 'admin'
+    )
+  );
+
+-- Employees can view categories in their organization
+CREATE POLICY "Employees can view org categories"
+  ON public.knowledge_categories
+  AS PERMISSIVE
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles
+      WHERE profiles.user_id = auth.uid()
+      AND profiles.org_id = knowledge_categories.org_id
+      AND profiles.role = 'employee'
+    )
+  );
+```
+
+### Knowledge Document Categories
+```sql
+-- Admins have full access to document-category relationships
+CREATE POLICY "Admins have full access to document categories"
+  ON public.knowledge_document_categories
+  AS PERMISSIVE
+  FOR ALL
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles p
+      JOIN public.knowledge_documents d ON d.org_id = p.org_id
+      WHERE p.user_id = auth.uid()
+      AND p.role = 'admin'
+      AND d.id = knowledge_document_categories.document_id
+    )
+  );
+
+-- Employees and customers can view document-category relationships
+CREATE POLICY "Users can view document categories"
+  ON public.knowledge_document_categories
+  AS PERMISSIVE
+  FOR SELECT
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.knowledge_documents d
+      WHERE d.id = knowledge_document_categories.document_id
+      AND (
+        -- For public published documents
+        (d.is_public = true AND d.status = 'published')
+        OR
+        -- For org members
+        EXISTS (
+          SELECT 1 FROM public.profiles p
+          WHERE p.user_id = auth.uid()
+          AND p.org_id = d.org_id
+          AND p.role IN ('admin', 'employee')
+        )
+      )
+    )
+  );
+```
