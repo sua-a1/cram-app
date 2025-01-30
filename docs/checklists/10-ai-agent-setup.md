@@ -43,6 +43,10 @@ This checklist covers the initial setup of the AI Agent within the Cram project,
 - [x] Create utility for processing stored files from 'knowledge-documents' bucket
 - [x] Create utility for processing 'content' column from 'knowledge-documents' table
     - [x] Implemented logic for handling content when file_url is NULL
+      - [x] Proper markdown content processing
+      - [x] Chunking with formatting preservation
+      - [x] Embedding generation for content-only docs
+      - [x] Update triggers and regeneration
     - [x] Implemented logic for handling files stored in bucket
 - [x] Set up background job for embedding updates when documents change
 - [x] Implement embedding generation for files stored in the bucket:
@@ -64,6 +68,11 @@ This checklist covers the initial setup of the AI Agent within the Cram project,
       - [ ] Complex PDFs with multiple pages and formatting
       - [x] Markdown with rich formatting (headers, lists, code blocks, tables)
       - [x] Large text files (tested with 100+ lines)
+  - [x] Test content-only documents (no file_url):
+      - [x] Creation with markdown content
+      - [x] Content updates and embedding regeneration
+      - [x] Proper chunking of formatted content
+      - [x] Cascade deletion of embeddings
   - [x] Validate embedding quality
       - [x] Proper chunking verified
       - [x] Batch processing implemented (20 chunks at a time)
