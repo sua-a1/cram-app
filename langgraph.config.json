@@ -11,10 +11,9 @@
     "langsmith>=0.0.69",
     "langgraph>=0.0.20"
   ],
-  "endpoints": [
-    {
-      "path": "/hello",
-      "function": "./agents/workflows/hello-world.run",
+  "graphs": {
+    "hello": {
+      "path": "./agents/workflows/hello-world.run",
       "description": "Simple hello world agent for testing",
       "config": {
         "model": "gpt-4-1106-preview",
@@ -29,9 +28,8 @@
         }
       }
     },
-    {
-      "path": "/process-ticket",
-      "function": "./agents/workflows/ticket-processor.run",
+    "process_ticket": {
+      "path": "./agents/workflows/ticket-processor.run",
       "description": "Process and respond to customer support tickets",
       "config": {
         "model": "gpt-4-1106-preview",
@@ -46,6 +44,6 @@
         }
       }
     }
-  ],
+  },
   "environment": "development"
 } 
