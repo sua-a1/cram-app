@@ -12,8 +12,8 @@
     "langgraph>=0.0.20"
   ],
   "graphs": {
-    "hello_world": "agents.workflows.hello_world:run",
-    "ticket_processor": "agents.workflows.ticket_processor:run"
+    "hello_world": "hello_world:run",
+    "ticket_processor": "ticket_processor:run"
   },
   "environment": "development"
 } 
