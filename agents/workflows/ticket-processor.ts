@@ -6,6 +6,8 @@ import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { z } from 'zod';
 import { env } from '../config/env';
 import { traceWorkflow } from '../utils/langsmith';
+import { analyzeTicketTool } from '../tools/analyze-ticket';
+import { documentRetrievalTool } from '../tools/document-retrieval-tool';
 
 // Define input/output schemas
 const InputSchema = z.object({
@@ -37,24 +39,14 @@ const StateAnnotation = Annotation.Root({
     value: (x, y) => y,
     default: () => 'open'
   }),
+  context: Annotation<string>({
+    value: (x, y) => y,
+    default: () => ''
+  })
 });
 
 // Define tools for ticket processing
-const analyzeTicketTool = new DynamicTool({
-  name: "analyze_ticket",
-  description: "Analyzes a support ticket and determines if it requires human intervention",
-  func: async (ticket: string) => {
-    const requiresHuman = ticket.toLowerCase().includes('escalate') || 
-                         ticket.toLowerCase().includes('human assistance');
-    return JSON.stringify({
-      requires_human: requiresHuman,
-      status: requiresHuman ? 'in-progress' : 'open'
-    });
-  },
-});
-
-// Create a tool node
-const tools = [analyzeTicketTool];
+const tools = [analyzeTicketTool, documentRetrievalTool];
 const toolNode = new ToolNode(tools);
 
 // Create a model and give it access to the tools
