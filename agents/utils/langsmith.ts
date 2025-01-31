@@ -46,6 +46,7 @@ export async function traceWorkflow<T>(
     metadata?: Record<string, any>;
   } = {}
 ): Promise<T> {
+  // If tracing is disabled or client isn't available, just execute
   if (!langsmith || !env.LANGSMITH_TRACING) {
     return execution();
   }
@@ -57,22 +58,55 @@ export async function traceWorkflow<T>(
     extraMetadata: options.metadata
   });
 
-  // Create run and get ID
-  const createResult = await langsmith.createRun(runData);
-  const runId = (createResult as unknown as { id: string }).id;
+  let createResult: { id: string } | null = null;
 
   try {
-    const result = await execution();
-    await langsmith.updateRun(runId, {
-      outputs: { result },
-      end_time: Date.now(),
-    });
-    return result;
+    // Create run and get ID, with proper type checking
+    let result: any;
+    try {
+      result = await langsmith.createRun(runData);
+    } catch (error) {
+      console.warn('Failed to create LangSmith run:', error);
+      return execution();
+    }
+
+    if (typeof result !== 'object' || !result) {
+      console.warn('Invalid result from LangSmith createRun');
+      return execution();
+    }
+
+    createResult = result as { id: string };
+    if (!createResult.id) {
+      console.warn('Invalid run ID from LangSmith');
+      return execution();
+    }
+
+    // Execute the workflow
+    const executionResult = await execution();
+
+    // Update the run with results
+    try {
+      await langsmith.updateRun(createResult.id, {
+        outputs: { result: executionResult },
+        end_time: Date.now(),
+      });
+    } catch (error) {
+      console.warn('Failed to update LangSmith run:', error);
+    }
+
+    return executionResult;
   } catch (error) {
-    await langsmith.updateRun(runId, {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      end_time: Date.now(),
-    });
+    // If we have a valid run ID, try to update it with the error
+    if (createResult?.id) {
+      try {
+        await langsmith.updateRun(createResult.id, {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          end_time: Date.now(),
+        });
+      } catch (updateError) {
+        console.warn('Failed to update LangSmith run with error:', updateError);
+      }
+    }
     throw error;
   }
 } 

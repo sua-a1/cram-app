@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage, AIMessage, BaseMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage, BaseMessage, SystemMessage } from "@langchain/core/messages";
 import { StateGraph, Annotation } from "@langchain/langgraph";
 import { DynamicTool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -8,11 +8,15 @@ import { env } from '../config/env';
 import { traceWorkflow } from '../utils/langsmith';
 import { analyzeTicketTool } from '../tools/analyze-ticket';
 import { documentRetrievalTool } from '../tools/document-retrieval-tool';
+import { createServiceClient } from '@/lib/server/supabase';
+import { storeTicketMessages, getTicketMessages } from '../utils/ticket-messages';
 
 // Define input/output schemas
 const InputSchema = z.object({
   ticket: z.string().min(1, 'Ticket content is required'),
   ticketId: z.string().uuid('Valid ticket ID is required'),
+  userId: z.string().uuid('Valid user ID is required'),
+  previousMessages: z.array(z.any()).optional(),
 });
 
 const OutputSchema = z.object({
@@ -31,6 +35,7 @@ const StateAnnotation = Annotation.Root({
     reducer: (x, y) => x.concat(y),
   }),
   ticketId: Annotation<string>(),
+  userId: Annotation<string>(),
   requires_human: Annotation<boolean>({
     value: (x, y) => y,
     default: () => false
@@ -42,6 +47,10 @@ const StateAnnotation = Annotation.Root({
   context: Annotation<string>({
     value: (x, y) => y,
     default: () => ''
+  }),
+  conversationHistory: Annotation<BaseMessage[]>({
+    reducer: (x, y) => x.concat(y),
+    default: () => []
   })
 });
 
@@ -70,7 +79,20 @@ function shouldContinue(state: typeof StateAnnotation.State) {
 // Define the function that calls the model
 async function callModel(state: typeof StateAnnotation.State) {
   const response = await model.invoke(state.messages);
-  return { messages: [response] };
+  
+  // Store the latest message pair
+  const lastUserMessage = state.messages[state.messages.length - 1];
+  await storeTicketMessages(
+    state.ticketId, 
+    [lastUserMessage, response], 
+    {}, 
+    state.userId
+  );
+  
+  return { 
+    messages: [response],
+    conversationHistory: [lastUserMessage, response]
+  };
 }
 
 // Define workflow configuration schema
@@ -103,17 +125,45 @@ export async function run(input: InputType): Promise<OutputType> {
         
         console.log(`[${env.NODE_ENV}] Processing ticket: ${validatedInput.ticket.substring(0, 50)}...`);
 
-        // Add system message for ticket processing context
-        const systemMessage = new HumanMessage(
+        // Get ticket history
+        const ticketHistory = await getTicketMessages(validatedInput.ticketId);
+        const conversationContext = ticketHistory
+          .map(msg => {
+            const role = msg instanceof AIMessage ? 'Assistant' : 'Customer';
+            return `${role}: ${msg.content}`;
+          })
+          .join('\n');
+
+        // Add system message with conversation history
+        const systemMessage = new SystemMessage(
           "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
           "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
-          "Use the analyze_ticket tool to determine if human intervention is needed."
+          "Use the analyze_ticket tool to determine if human intervention is needed.\n\n" +
+          (conversationContext ? `Previous conversation:\n${conversationContext}\n\n` : "") +
+          "Respond to the customer's latest message while maintaining context of the conversation."
+        );
+
+        // Initialize messages with history if available
+        const initialMessages = [
+          systemMessage,
+          ...(validatedInput.previousMessages || []),
+          new HumanMessage(validatedInput.ticket)
+        ];
+
+        // Store the initial system message and user message
+        await storeTicketMessages(
+          validatedInput.ticketId, 
+          [systemMessage, new HumanMessage(validatedInput.ticket)],
+          {},
+          validatedInput.userId
         );
 
         // Run the workflow with initial state
         const finalState = await graph.invoke({
-          messages: [systemMessage, new HumanMessage(validatedInput.ticket)],
+          messages: initialMessages,
           ticketId: validatedInput.ticketId,
+          userId: validatedInput.userId,
+          conversationHistory: ticketHistory
         });
 
         // Get the final message
@@ -148,6 +198,7 @@ export async function run(input: InputType): Promise<OutputType> {
       metadata: {
         input_ticket: input.ticket,
         ticket_id: input.ticketId,
+        user_id: input.userId,
       }
     }
   );
