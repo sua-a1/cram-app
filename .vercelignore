@@ -1,5 +1,4 @@
 # Agent and development directories
-app/
 agents/
 scripts/test-ticket-processor.ts
 .langgraph/

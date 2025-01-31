@@ -9,13 +9,20 @@ const nextConfig = {
     // Don't fail build on eslint errors during deployment
     ignoreDuringBuilds: true,
   },
-  // Configure build output
+  // Configure build output and source
   distDir: '.next',
   experimental: {
     // Needed for some of our dependencies
     serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli']
   },
+  // Configure source directory
+  basePath: '',
+  poweredByHeader: false,
+  // Configure source paths
   webpack: (config, { isServer }) => {
+    // Add src directory to module resolution
+    config.resolve.modules.push('./src');
+
     // Exclude agent-related files from the build
     if (!isServer) {
       config.resolve.fallback = {
