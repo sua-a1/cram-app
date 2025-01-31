@@ -10,8 +10,6 @@
       "OPENAI_TEMPERATURE",
       "LANGGRAPH_API_KEY",
       "LANGGRAPH_PROJECT",
-      "LANGGRAPH_ENDPOINT",
-      "LANGGRAPH_ENVIRONMENT",
       "NEXT_PUBLIC_SUPABASE_URL",
       "SUPABASE_SERVICE_ROLE_KEY"
     ],
@@ -19,7 +17,9 @@
       "LANGSMITH_API_KEY",
       "LANGSMITH_PROJECT",
       "LANGSMITH_ENDPOINT",
-      "LANGSMITH_TRACING"
+      "LANGSMITH_TRACING",
+      "LANGGRAPH_ENDPOINT",
+      "LANGGRAPH_ENVIRONMENT"
     ]
   },
   "build": {
@@ -33,8 +33,6 @@
   ],
   "dependencies": [".", "package.json", "package-lock.json"],
   "graphs": {
-    "hello": "./agents/workflows/hello-world.ts:graph",
-    "ticket-processor": "./agents/workflows/ticket-processor.ts:graph",
-    "ticket-processor-functional": "./agents/workflows/ticket-processor-functional.ts:agent"
+    "ticket-processor": "./agents/workflows/ticket-processor-functional.ts:agent"
   }
 } 
