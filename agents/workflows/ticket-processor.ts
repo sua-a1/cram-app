@@ -1,6 +1,6 @@
-import { ChatOpenAI } from "@langchain/openai";
+import { ChatOpenAI } from  "@langchain/openai";
 import { HumanMessage, AIMessage, BaseMessage, SystemMessage, AIMessageChunk } from "@langchain/core/messages";
-import { StateGraph, Annotation } from "@langchain/langgraph";
+import { StateGraph, Annotation, Command } from "@langchain/langgraph";
 import { DynamicTool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { z } from 'zod';
@@ -9,6 +9,7 @@ import { traceWorkflow } from '../utils/langsmith';
 import { analyzeTicketTool } from '../tools/analyze-ticket';
 import { documentRetrievalTool } from '../tools/document-retrieval-tool';
 import { storeTicketMessages, getTicketMessages, storeTicketMessage } from '../utils/ticket-messages';
+import { tool } from "@langchain/core/tools";
 
 // Define input/output schemas
 const InputSchema = z.object({
@@ -67,7 +68,33 @@ const StateAnnotation = Annotation.Root({
 });
 
 // Define tools for ticket processing
-const tools = [analyzeTicketTool, documentRetrievalTool];
+export const closeTicketTool = tool(async ({ ticketId, reason }: { ticketId: string, reason: string }, config) => {
+  try {
+    // Return a Command to update the ticket status and add a closing message
+    return new Command({
+      update: {
+        status: 'closed',
+        messages: [{
+          type: 'system',
+          content: `Ticket closed. Reason: ${reason}`,
+          metadata: { ticketId }
+        }]
+      }
+    });
+  } catch (error) {
+    console.error('Error closing ticket:', error);
+    throw new Error('Failed to close ticket. Please try again or escalate to human agent.');
+  }
+}, {
+  name: 'close_ticket',
+  description: 'Close the ticket when the issue is resolved and the user agrees to close it.',
+  schema: z.object({
+    ticketId: z.string().uuid('Valid ticket ID is required'),
+    reason: z.string().min(1, 'Closing reason is required')
+  })
+});
+
+const tools = [analyzeTicketTool, documentRetrievalTool, closeTicketTool];
 const toolNode = new ToolNode(tools);
 
 // Create a model and give it access to the tools
