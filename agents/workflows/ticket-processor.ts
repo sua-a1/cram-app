@@ -70,8 +70,16 @@ const StateAnnotation = Annotation.Root({
 // Define tools for ticket processing
 export const closeTicketTool = tool(async ({ ticketId, reason }: { ticketId: string, reason: string }, config) => {
   try {
-    // Return a Command to update the ticket status and add a closing message
-    return new Command({
+    // Return a properly formatted response for LangGraph Cloud
+    return {
+      tool_calls: [{
+        id: `close_ticket_${Date.now()}`,
+        type: 'function',
+        function: {
+          name: 'close_ticket',
+          arguments: JSON.stringify({ ticketId, reason })
+        }
+      }],
       update: {
         status: 'closed',
         messages: [{
@@ -80,7 +88,7 @@ export const closeTicketTool = tool(async ({ ticketId, reason }: { ticketId: str
           metadata: { ticketId }
         }]
       }
-    });
+    };
   } catch (error) {
     console.error('Error closing ticket:', error);
     throw new Error('Failed to close ticket. Please try again or escalate to human agent.');
@@ -94,7 +102,67 @@ export const closeTicketTool = tool(async ({ ticketId, reason }: { ticketId: str
   })
 });
 
-const tools = [analyzeTicketTool, documentRetrievalTool, closeTicketTool];
+// Define the process refund tool
+export const processRefundTool = tool(async ({ 
+  ticketId, 
+  amount, 
+  reason,
+  orderReference
+}: { 
+  ticketId: string, 
+  amount: number,
+  reason: string,
+  orderReference: string
+}, config) => {
+  try {
+    // Mock successful refund processing
+    console.log(`[MOCK] Processing refund for ticket ${ticketId}:`, {
+      amount,
+      reason,
+      orderReference,
+      timestamp: new Date().toISOString()
+    });
+
+    // Return a properly formatted response for LangGraph Cloud
+    return {
+      tool_calls: [{
+        id: `process_refund_${Date.now()}`,
+        type: 'function',
+        function: {
+          name: 'process_refund',
+          arguments: JSON.stringify({ ticketId, amount, reason, orderReference })
+        }
+      }],
+      update: {
+        status: 'in-progress',
+        messages: [{
+          type: 'system',
+          content: `Refund of $${amount.toFixed(2)} processed successfully for order ${orderReference}. Reason: ${reason}`,
+          metadata: { 
+            ticketId,
+            refundAmount: amount,
+            orderReference,
+            refundTimestamp: new Date().toISOString()
+          }
+        }]
+      }
+    };
+  } catch (error) {
+    console.error('Error processing refund:', error);
+    throw new Error('Failed to process refund. Please escalate to a supervisor.');
+  }
+}, {
+  name: 'process_refund',
+  description: 'Process a refund for a customer if their request meets our refund policy criteria. Only use this if you are confident the refund request is valid according to our policies.',
+  schema: z.object({
+    ticketId: z.string().uuid('Valid ticket ID is required'),
+    amount: z.number().positive('Refund amount must be positive'),
+    reason: z.string().min(1, 'Refund reason is required'),
+    orderReference: z.string().min(1, 'Order reference is required')
+  })
+});
+
+const tools = [analyzeTicketTool, documentRetrievalTool, closeTicketTool, processRefundTool];
 const toolNode = new ToolNode(tools);
 
 // Create a model and give it access to the tools
