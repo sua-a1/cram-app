@@ -21,7 +21,7 @@
     ]
   },
   "build": {
-    "command": "npm install --legacy-peer-deps"
+    "command": "npm ci --legacy-peer-deps"
   },
   "node_version": "20",
   "dockerfile_lines": [],
