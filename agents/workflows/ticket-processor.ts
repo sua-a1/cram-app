@@ -8,8 +8,7 @@ import { env } from '../config/env';
 import { traceWorkflow } from '../utils/langsmith';
 import { analyzeTicketTool } from '../tools/analyze-ticket';
 import { documentRetrievalTool } from '../tools/document-retrieval-tool';
-import { createServiceClient } from '@/lib/server/supabase';
-import { storeTicketMessages, getTicketMessages } from '../utils/ticket-messages';
+import { storeTicketMessages, getTicketMessages, storeTicketMessage } from '../utils/ticket-messages';
 
 // Define input/output schemas
 const InputSchema = z.object({
@@ -150,11 +149,11 @@ export async function run(input: InputType): Promise<OutputType> {
           new HumanMessage(validatedInput.ticket)
         ];
 
-        // Store the initial system message and user message
+        // Store initial messages with proper ticket ID
         await storeTicketMessages(
           validatedInput.ticketId, 
           [systemMessage, new HumanMessage(validatedInput.ticket)],
-          {},
+          { ticketId: validatedInput.ticketId },  // Add ticketId to metadata
           validatedInput.userId
         );
 
@@ -166,8 +165,17 @@ export async function run(input: InputType): Promise<OutputType> {
           conversationHistory: ticketHistory
         });
 
-        // Get the final message
+        // Store final AI message with proper ticket ID
         const lastMessage = finalState.messages[finalState.messages.length - 1];
+        if (lastMessage instanceof AIMessage) {
+          await storeTicketMessage({
+            ticketId: validatedInput.ticketId,
+            message: lastMessage,
+            metadata: { ticketId: validatedInput.ticketId },
+            userId: validatedInput.userId
+          });
+        }
+
         const finalContent = typeof lastMessage.content === 'string' 
           ? lastMessage.content 
           : JSON.stringify(lastMessage.content);
