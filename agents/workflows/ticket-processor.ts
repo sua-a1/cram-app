@@ -174,12 +174,41 @@ const model = new ChatOpenAI({
 
 // Define the function that determines whether to continue or not
 function shouldContinue(state: typeof StateAnnotation.State) {
-  const lastMessage = state.messages[state.messages.length - 1] as AIMessage;
-  // If the LLM makes a tool call, then we route to the "tools" node
-  if (lastMessage.tool_calls?.length) {
-    return "tools";
+  const lastMessage = state.messages[state.messages.length - 1];
+  
+  // Debug the last message
+  console.log('shouldContinue checking message:', {
+    type: lastMessage?.constructor?.name,
+    content: lastMessage?.content,
+    tool_calls: lastMessage instanceof AIMessage ? lastMessage.additional_kwargs?.tool_calls : undefined
+  });
+
+  // If there's no last message, end the flow
+  if (!lastMessage) {
+    console.log('No last message found, ending flow');
+    return "__end__";
   }
-  // Otherwise, we stop using the special "__end__" node
+
+  // Handle AIMessage specifically
+  if (lastMessage instanceof AIMessage) {
+    // Check for tool calls in additional_kwargs
+    const toolCalls = lastMessage.additional_kwargs?.tool_calls;
+    
+    if (toolCalls && toolCalls.length > 0) {
+      console.log('Found tool calls, continuing to tools node:', toolCalls);
+      return "tools";
+    }
+
+    // Check if the message is a response from a tool
+    if (lastMessage.content && typeof lastMessage.content === 'string' && 
+        (lastMessage.content.includes('"requires_human":') || lastMessage.content.includes('"status":'))) {
+      console.log('Found tool response, continuing to agent');
+      return "agent";
+    }
+  }
+
+  // For any other case, end the flow
+  console.log('No tool calls or tool responses found, ending flow');
   return "__end__";
 }
 
@@ -187,11 +216,11 @@ function shouldContinue(state: typeof StateAnnotation.State) {
 async function callModel(state: typeof StateAnnotation.State) {
   try {
     // Debug logging
-    console.log('State received:', {
-      messages: state.messages?.length || 0,
+    console.log('callModel received state:', {
+      messageCount: state.messages?.length || 0,
       ticketId: state.ticketId,
       userId: state.userId,
-      conversationHistory: state.conversationHistory?.length || 0
+      lastMessageType: state.messages?.length ? state.messages[state.messages.length - 1]?.constructor?.name : 'none'
     });
 
     // Initialize messages array with system message if empty
@@ -293,8 +322,28 @@ const workflow = new StateGraph(StateAnnotation, ConfigurationSchema)
   .addNode("agent", callModel)
   .addNode("tools", toolNode)
   .addEdge("tools", "agent")
+  .addEdge("agent", "tools")  // Add bidirectional flow
   .addEdge("__start__", "agent")
-  .addConditionalEdges("agent", shouldContinue);
+  .addConditionalEdges(
+    "agent",
+    (state) => {
+      console.log('Evaluating agent edges with state:', {
+        messageCount: state.messages?.length,
+        lastMessageType: state.messages?.length ? state.messages[state.messages.length - 1]?.constructor?.name : 'none'
+      });
+      return shouldContinue(state);
+    }
+  )
+  .addConditionalEdges(
+    "tools",
+    (state) => {
+      console.log('Evaluating tools edges with state:', {
+        messageCount: state.messages?.length,
+        lastMessageType: state.messages?.length ? state.messages[state.messages.length - 1]?.constructor?.name : 'none'
+      });
+      return "agent";  // Always return to agent after tools
+    }
+  );
 
 export const graph = workflow.compile();
 
