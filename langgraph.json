@@ -26,10 +26,11 @@
   "node_version": "20",
   "dockerfile_lines": [
     "COPY package*.json ./",
+    "COPY .env ./",
     "RUN npm config set legacy-peer-deps true",
     "RUN npm cache clean --force"
   ],
-  "dependencies": [".", "package.json", "package-lock.json"],
+  "dependencies": [".", "package.json", "package-lock.json", ".env"],
   "graphs": {
     "hello": "./agents/workflows/hello-world.ts:graph"
   },

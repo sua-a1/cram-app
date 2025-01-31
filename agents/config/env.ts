@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import * as dotenv from 'dotenv';
+import { config } from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 
@@ -7,14 +7,27 @@ import { dirname, resolve } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Load environment variables from .env file
-const envPath = resolve(__dirname, '../../.env');
-console.log('Loading .env file from:', envPath);
-const result = dotenv.config({ path: envPath });
+// Try to load .env from multiple possible locations
+const envPaths = [
+  resolve(__dirname, '../../.env'),  // Local development
+  resolve(process.cwd(), '.env'),    // Production in /deps/cram-app
+  '.env'                             // Fallback to current directory
+];
 
-if (result.error) {
-  console.error('Error loading .env file:', result.error);
-  throw result.error;
+let envLoaded = false;
+for (const path of envPaths) {
+  try {
+    console.log('Loading .env file from:', path);
+    config({ path });
+    envLoaded = true;
+    break;
+  } catch (error) {
+    console.log('Error loading .env file:', error);
+  }
+}
+
+if (!envLoaded) {
+  console.warn('No .env file loaded, falling back to process.env');
 }
 
 // Debug: Log all environment variables (without sensitive values)
