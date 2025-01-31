@@ -3,7 +3,14 @@ import { HumanMessage, AIMessage } from "@langchain/core/messages";
 import { StateGraph, MessagesAnnotation } from "@langchain/langgraph";
 import { DynamicTool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { env } from '../config/env';
+import { env } from '../config/env.js';
+
+// Debug: Log configuration
+console.log('Initializing ChatOpenAI with:', {
+  modelName: env.OPENAI_MODEL,
+  temperature: env.OPENAI_TEMPERATURE,
+  apiKeyPresent: env.OPENAI_API_KEY ? 'Yes' : 'No'
+});
 
 // Define a simple hello world tool
 const helloWorldTool = new DynamicTool({
@@ -20,6 +27,7 @@ const toolNode = new ToolNode(tools);
 const model = new ChatOpenAI({
   modelName: env.OPENAI_MODEL,
   temperature: env.OPENAI_TEMPERATURE,
+  openAIApiKey: env.OPENAI_API_KEY,
 }).bindTools(tools);
 
 // Define the function that determines whether to continue or not
@@ -48,47 +56,39 @@ const workflow = new StateGraph(MessagesAnnotation)
   .addEdge("__start__", "agent")
   .addConditionalEdges("agent", shouldContinue);
 
-// Finally, we compile it into a LangChain Runnable.
-const app = workflow.compile();
-
-// Use the agent
-const finalState = await app.invoke({
-  messages: [new HumanMessage("what is the weather in sf")],
-});
-console.log(finalState.messages[finalState.messages.length - 1].content);
-
-const nextState = await app.invoke({
-  // Including the messages from the previous run gives the LLM context.
-  // This way it knows we're asking about the weather in NY
-  messages: [...finalState.messages, new HumanMessage("what about ny")],
-    });
-console.log(nextState.messages[nextState.messages.length - 1].content);
-
 // Compile the graph
-//const graph = workflow.compile();
+const graph = workflow.compile();
 
-// Define workflow name constant
-//const WORKFLOW_NAME = 'hello-world';
+// Export the workflow and graph
+export { workflow, graph };
 
-// Export the entrypoint function for local testing
-//export async function run(input: { message: string }) {
-//  try {
-//    // Run the workflow with initial state
-//    const finalState = await graph.invoke({
-//      messages: [new HumanMessage(input.message)],
-//    });
+// Export the run function
+export async function run(input: { message: string }) {
+  try {
+    // Run the workflow with initial state
+    const finalState = await graph.invoke({
+      messages: [new HumanMessage(input.message)],
+    });
 
-//    return {
-//      messages: finalState.messages,
-//      final_answer: finalState.messages[finalState.messages.length - 1].content,
-//    };
+    return {
+      messages: finalState.messages,
+      final_answer: finalState.messages[finalState.messages.length - 1].content,
+    };
+  } catch (error) {
+    console.error('Workflow error:', error);
+    throw error;
+  }
+}
 
-//  } catch (error) {
-//    console.error('Workflow error:', error);
-//    throw error;
-//  }
-//}
-
-// Export the graph and workflow
-//export { graph };
-//export default workflow; 
+// Test the workflow if this file is run directly
+if (import.meta.url === new URL(import.meta.url).href) {
+  console.log('\nTesting workflow with a simple message...');
+  run({ message: "What can you do? Please use the hello_world tool in your response." })
+    .then(result => {
+      console.log('\nTest result:');
+      console.log('Final answer:', result.final_answer);
+    })
+    .catch(error => {
+      console.error('Test failed:', error);
+    });
+} 
