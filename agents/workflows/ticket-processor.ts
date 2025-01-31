@@ -91,12 +91,6 @@ function shouldContinue(state: typeof StateAnnotation.State) {
 // Define the function that calls the model
 async function callModel(state: typeof StateAnnotation.State) {
   try {
-    // Ensure state.messages exists and is an array
-    if (!state?.messages || !Array.isArray(state.messages)) {
-      console.error('Invalid state.messages:', state?.messages);
-      throw new Error('state.messages must be a non-null array');
-    }
-
     // Debug logging
     console.log('State received:', {
       messages: state.messages?.length || 0,
@@ -105,76 +99,81 @@ async function callModel(state: typeof StateAnnotation.State) {
       conversationHistory: state.conversationHistory?.length || 0
     });
 
-    // Debug logging for messages
-    console.log('Messages before model invocation:', state.messages.map(msg => ({
+    // Initialize messages array with system message if empty
+    let messages: BaseMessage[] = [];
+    
+    // Always ensure we have a system message first
+    const systemMessage = new SystemMessage(
+      "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
+      "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
+      "Use the analyze_ticket tool to determine if human intervention is needed."
+    );
+    
+    messages.push(systemMessage);
+
+    // Add any existing messages from state
+    if (state.messages && Array.isArray(state.messages)) {
+      const validMessages = state.messages
+        .filter(msg => msg !== null && msg !== undefined)
+        .map(msg => {
+          if (msg instanceof BaseMessage) return msg;
+          
+          // Convert plain objects to BaseMessage instances
+          if (msg && typeof msg === 'object' && 'content' in msg) {
+            const msgObj = msg as MessageLike;
+            const content = typeof msgObj.content === 'string' ? msgObj.content : JSON.stringify(msgObj.content);
+            const metadata = msgObj.metadata || {};
+            
+            if (msgObj._getType?.() === 'system' || msgObj.type === 'system') {
+              return new SystemMessage(content, metadata);
+            } else if (msgObj._getType?.() === 'ai' || msgObj.type === 'ai') {
+              return new AIMessage(content, metadata);
+            } else {
+              return new HumanMessage(content, metadata);
+            }
+          }
+          
+          // Convert strings to HumanMessage
+          if (typeof msg === 'string') {
+            return new HumanMessage(msg);
+          }
+
+          console.warn('Invalid message type:', msg);
+          return null;
+        })
+        .filter((msg): msg is BaseMessage => msg !== null);
+
+      // Add valid messages, excluding any system messages since we already added one
+      messages.push(...validMessages.filter(msg => !(msg instanceof SystemMessage)));
+    }
+
+    // Debug logging for final message array
+    console.log('Messages before model invocation:', messages.map(msg => ({
       type: msg?.constructor?.name || 'null',
       content: msg?.content || 'no content',
-      _type: msg?._getType?.() || 'unknown',
-      additional_kwargs: msg?.additional_kwargs || {}
+      _type: msg?._getType?.() || 'unknown'
     })));
 
-    // Validate and convert messages
-    const validMessages = state.messages
-      .filter(msg => msg !== null && msg !== undefined)
-      .map(msg => {
-        if (msg instanceof BaseMessage) return msg;
-        
-        // Convert plain objects to BaseMessage instances
-        if (msg && typeof msg === 'object' && 'content' in msg) {
-          const msgObj = msg as MessageLike;
-          const content = typeof msgObj.content === 'string' ? msgObj.content : JSON.stringify(msgObj.content);
-          const metadata = msgObj.metadata || {};
-          
-          if (msgObj._getType?.() === 'system' || msgObj.type === 'system') {
-            return new SystemMessage(content, metadata);
-          } else if (msgObj._getType?.() === 'ai' || msgObj.type === 'ai') {
-            return new AIMessage(content, metadata);
-          } else {
-            return new HumanMessage(content, metadata);
-          }
-        }
-        
-        // Convert strings to HumanMessage
-        if (typeof msg === 'string') {
-          return new HumanMessage(msg);
-        }
-
-        console.warn('Invalid message type:', msg);
-        return null;
-      })
-      .filter((msg): msg is BaseMessage => msg !== null);
-
-    if (validMessages.length === 0) {
-      throw new Error('No valid messages to process');
-    }
-
-    // Ensure we have at least a system message
-    if (!validMessages.some(msg => msg instanceof SystemMessage)) {
-      validMessages.unshift(new SystemMessage(
-        "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
-        "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
-        "Use the analyze_ticket tool to determine if human intervention is needed."
-      ));
-    }
-
-    // Invoke model with valid messages
-    console.log('Invoking model with messages:', validMessages.length);
-    console.log('Message types:', validMessages.map(msg => msg.constructor.name));
-    const response = await model.invoke(validMessages);
+    // Invoke model with messages
+    console.log('Invoking model with messages:', messages.length);
+    console.log('Message types:', messages.map(msg => msg.constructor.name));
+    const response = await model.invoke(messages);
     console.log('Model response received');
     
-    // Store the latest message pair
-    const lastUserMessage = validMessages[validMessages.length - 1];
-    await storeTicketMessages(
-      state.ticketId, 
-      [lastUserMessage, response], 
-      {}, 
-      state.userId
-    );
+    // Store the latest message pair if there are messages
+    if (messages.length > 1) {
+      const lastUserMessage = messages[messages.length - 1];
+      await storeTicketMessages(
+        state.ticketId, 
+        [lastUserMessage, response], 
+        {}, 
+        state.userId
+      );
+    }
     
     return { 
       messages: [response],
-      conversationHistory: [lastUserMessage, response]
+      conversationHistory: messages.length > 1 ? [messages[messages.length - 1], response] : [response]
     };
   } catch (error) {
     console.error('Error in callModel:', error);
