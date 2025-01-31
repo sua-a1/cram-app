@@ -77,49 +77,71 @@ function shouldContinue(state: typeof StateAnnotation.State) {
 
 // Define the function that calls the model
 async function callModel(state: typeof StateAnnotation.State) {
-  // Debug logging
-  console.log('Messages before model invocation:', state.messages.map(msg => ({
-    type: msg?.constructor?.name,
-    content: msg?.content,
-    _type: msg?._getType?.(),
-    additional_kwargs: msg?.additional_kwargs
-  })));
+  try {
+    // Ensure state.messages exists and is an array
+    if (!state?.messages || !Array.isArray(state.messages)) {
+      console.error('Invalid state.messages:', state?.messages);
+      throw new Error('state.messages must be a non-null array');
+    }
 
-  // Validate messages array
-  const validMessages = state.messages
-    .filter(msg => msg !== null && msg !== undefined)
-    .map(msg => {
-      if (msg instanceof BaseMessage) return msg;
-      if (typeof msg === 'string') return new HumanMessage(msg);
-      console.warn('Invalid message type:', msg);
-      return null;
-    })
-    .filter(msg => msg !== null);
+    // Debug logging
+    console.log('State received:', {
+      messages: state.messages?.length || 0,
+      ticketId: state.ticketId,
+      userId: state.userId,
+      conversationHistory: state.conversationHistory?.length || 0
+    });
 
-  if (validMessages.length === 0) {
-    throw new Error('No valid messages to process');
+    // Debug logging for messages
+    console.log('Messages before model invocation:', state.messages.map(msg => ({
+      type: msg?.constructor?.name || 'null',
+      content: msg?.content || 'no content',
+      _type: msg?._getType?.() || 'unknown',
+      additional_kwargs: msg?.additional_kwargs || {}
+    })));
+
+    // Validate messages array
+    const validMessages = state.messages
+      .filter(msg => msg !== null && msg !== undefined)
+      .map(msg => {
+        if (msg instanceof BaseMessage) return msg;
+        if (typeof msg === 'string') return new HumanMessage(msg);
+        console.warn('Invalid message type:', msg);
+        return null;
+      })
+      .filter(msg => msg !== null);
+
+    if (validMessages.length === 0) {
+      throw new Error('No valid messages to process');
+    }
+
+    // Ensure the last message exists and is valid
+    const lastUserMessage = validMessages[validMessages.length - 1];
+    if (!lastUserMessage) {
+      throw new Error('No valid last message found');
+    }
+
+    // Invoke model with valid messages
+    console.log('Invoking model with messages:', validMessages.length);
+    const response = await model.invoke(validMessages);
+    console.log('Model response received');
+    
+    // Store the latest message pair
+    await storeTicketMessages(
+      state.ticketId, 
+      [lastUserMessage, response], 
+      {}, 
+      state.userId
+    );
+    
+    return { 
+      messages: [response],
+      conversationHistory: [lastUserMessage, response]
+    };
+  } catch (error) {
+    console.error('Error in callModel:', error);
+    throw error;
   }
-
-  // Ensure the last message exists and is valid
-  const lastUserMessage = validMessages[validMessages.length - 1];
-  if (!lastUserMessage) {
-    throw new Error('No valid last message found');
-  }
-
-  const response = await model.invoke(validMessages);
-  
-  // Store the latest message pair
-  await storeTicketMessages(
-    state.ticketId, 
-    [lastUserMessage, response], 
-    {}, 
-    state.userId
-  );
-  
-  return { 
-    messages: [response],
-    conversationHistory: [lastUserMessage, response]
-  };
 }
 
 // Define workflow configuration schema
@@ -193,7 +215,12 @@ export async function run(input: InputType): Promise<OutputType> {
         );
 
         // Run the workflow with initial state
-        const finalState = await graph.invoke({
+        console.log('Initial messages:', initialMessages.map(msg => ({
+          type: msg?.constructor?.name || 'null',
+          content: msg?.content || 'no content'
+        })));
+
+        const initialState = {
           messages: initialMessages.filter(msg => {
             if (!msg) {
               console.warn('Filtered out null message during state initialization');
@@ -208,7 +235,21 @@ export async function run(input: InputType): Promise<OutputType> {
           ticketId: validatedInput.ticketId,
           userId: validatedInput.userId,
           conversationHistory: ticketHistory.filter(msg => msg instanceof BaseMessage)
+        };
+
+        // Validate initial state
+        if (!initialState.messages || !Array.isArray(initialState.messages) || initialState.messages.length === 0) {
+          throw new Error('Invalid initial state: messages must be a non-empty array');
+        }
+
+        console.log('Running workflow with state:', {
+          messageCount: initialState.messages.length,
+          ticketId: initialState.ticketId,
+          userId: initialState.userId,
+          historyCount: initialState.conversationHistory.length
         });
+
+        const finalState = await graph.invoke(initialState);
 
         // Store final AI message with proper ticket ID
         const lastMessage = finalState.messages[finalState.messages.length - 1];
