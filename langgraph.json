@@ -32,6 +32,7 @@
   "dependencies": [".", "package.json", "package-lock.json"],
   "graphs": {
     "hello": "./agents/workflows/hello-world.ts:graph",
-    "ticket-processor": "./agents/workflows/ticket-processor.ts:graph"
+    "ticket-processor": "./agents/workflows/ticket-processor.ts:graph",
+    "ticket-processor-functional": "./agents/workflows/ticket-processor-functional.ts:agent"
   }
 } 
