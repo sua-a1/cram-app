@@ -2,22 +2,24 @@
   "name": "cram-support-agent",
   "version": "0.1.0",
   "description": "Customer support agent for Cram ticketing system",
-  "entry": "agents/workflows/hello-world.ts",
+  "entry": "agents/workflows/ticket-processor-functional.ts",
   "environment": {
     "required": [
       "OPENAI_API_KEY",
       "OPENAI_MODEL",
-      "OPENAI_TEMPERATURE"
+      "OPENAI_TEMPERATURE",
+      "LANGGRAPH_API_KEY",
+      "LANGGRAPH_PROJECT",
+      "LANGGRAPH_ENDPOINT",
+      "LANGGRAPH_ENVIRONMENT",
+      "NEXT_PUBLIC_SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY"
     ],
     "optional": [
       "LANGSMITH_API_KEY",
       "LANGSMITH_PROJECT",
       "LANGSMITH_ENDPOINT",
-      "LANGSMITH_TRACING",
-      "LANGGRAPH_API_KEY",
-      "LANGGRAPH_PROJECT",
-      "LANGGRAPH_ENDPOINT",
-      "LANGGRAPH_ENVIRONMENT"
+      "LANGSMITH_TRACING"
     ]
   },
   "build": {
