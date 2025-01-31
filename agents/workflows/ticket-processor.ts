@@ -116,20 +116,39 @@ async function callModel(state: typeof StateAnnotation.State) {
       const validMessages = state.messages
         .filter(msg => msg !== null && msg !== undefined)
         .map(msg => {
-          if (msg instanceof BaseMessage) return msg;
+          if (msg instanceof BaseMessage) {
+            // Preserve tool calls if they exist
+            if (msg instanceof AIMessage && msg.additional_kwargs?.tool_calls) {
+              return new AIMessage({
+                content: msg.content,
+                additional_kwargs: {
+                  ...msg.additional_kwargs,
+                  tool_calls: msg.additional_kwargs.tool_calls
+                }
+              });
+            }
+            return msg;
+          }
           
           // Convert plain objects to BaseMessage instances
           if (msg && typeof msg === 'object' && 'content' in msg) {
-            const msgObj = msg as MessageLike;
+            const msgObj = msg as MessageLike & { additional_kwargs?: { tool_calls?: any[] } };
             const content = typeof msgObj.content === 'string' ? msgObj.content : JSON.stringify(msgObj.content);
             const metadata = msgObj.metadata || {};
             
             if (msgObj._getType?.() === 'system' || msgObj.type === 'system') {
-              return new SystemMessage(content, metadata);
+              return new SystemMessage(content);
             } else if (msgObj._getType?.() === 'ai' || msgObj.type === 'ai') {
-              return new AIMessage(content, metadata);
+              // Preserve tool calls for AI messages
+              return new AIMessage({
+                content,
+                additional_kwargs: {
+                  ...metadata,
+                  tool_calls: msgObj.additional_kwargs?.tool_calls || []
+                }
+              });
             } else {
-              return new HumanMessage(content, metadata);
+              return new HumanMessage(content);
             }
           }
           
@@ -151,14 +170,19 @@ async function callModel(state: typeof StateAnnotation.State) {
     console.log('Messages before model invocation:', messages.map(msg => ({
       type: msg?.constructor?.name || 'null',
       content: msg?.content || 'no content',
-      _type: msg?._getType?.() || 'unknown'
+      _type: msg?._getType?.() || 'unknown',
+      tool_calls: msg instanceof AIMessage ? msg.additional_kwargs?.tool_calls : undefined
     })));
 
     // Invoke model with messages
     console.log('Invoking model with messages:', messages.length);
     console.log('Message types:', messages.map(msg => msg.constructor.name));
     const response = await model.invoke(messages);
-    console.log('Model response received');
+    console.log('Model response received:', {
+      type: response.constructor.name,
+      content: response.content,
+      tool_calls: response instanceof AIMessage ? response.additional_kwargs?.tool_calls : undefined
+    });
     
     // Store the latest message pair if there are messages
     if (messages.length > 1) {
