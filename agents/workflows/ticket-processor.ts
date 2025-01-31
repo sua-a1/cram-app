@@ -1,11 +1,11 @@
-import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import { MemorySaver } from "@langchain/langgraph";
-import { createReactAgent } from "@langchain/langgraph/prebuilt";
+import { HumanMessage, AIMessage, BaseMessage } from "@langchain/core/messages";
+import { StateGraph, Annotation } from "@langchain/langgraph";
+import { DynamicTool } from "@langchain/core/tools";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { z } from 'zod';
 import { env } from '../config/env';
 import { traceWorkflow } from '../utils/langsmith';
-import { DynamicTool } from "@langchain/core/tools";
 
 // Define input/output schemas
 const InputSchema = z.object({
@@ -23,6 +23,22 @@ const OutputSchema = z.object({
 type InputType = z.infer<typeof InputSchema>;
 type OutputType = z.infer<typeof OutputSchema>;
 
+// Define the graph state
+const StateAnnotation = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: (x, y) => x.concat(y),
+  }),
+  ticketId: Annotation<string>(),
+  requires_human: Annotation<boolean>({
+    value: (x, y) => y,
+    default: () => false
+  }),
+  status: Annotation<'open' | 'in-progress' | 'closed'>({
+    value: (x, y) => y,
+    default: () => 'open'
+  }),
+});
+
 // Define tools for ticket processing
 const analyzeTicketTool = new DynamicTool({
   name: "analyze_ticket",
@@ -37,29 +53,54 @@ const analyzeTicketTool = new DynamicTool({
   },
 });
 
-// Initialize the model with tools
-const agentModel = new ChatOpenAI({ 
+// Create a tool node
+const tools = [analyzeTicketTool];
+const toolNode = new ToolNode(tools);
+
+// Create a model and give it access to the tools
+const model = new ChatOpenAI({
   modelName: env.OPENAI_MODEL,
-  temperature: env.OPENAI_TEMPERATURE 
+  temperature: env.OPENAI_TEMPERATURE,
+  openAIApiKey: env.OPENAI_API_KEY,
+}).bindTools(tools);
+
+// Define the function that determines whether to continue or not
+function shouldContinue(state: typeof StateAnnotation.State) {
+  const lastMessage = state.messages[state.messages.length - 1] as AIMessage;
+  // If the LLM makes a tool call, then we route to the "tools" node
+  if (lastMessage.tool_calls?.length) {
+    return "tools";
+  }
+  // Otherwise, we stop using the special "__end__" node
+  return "__end__";
+}
+
+// Define the function that calls the model
+async function callModel(state: typeof StateAnnotation.State) {
+  const response = await model.invoke(state.messages);
+  return { messages: [response] };
+}
+
+// Define workflow configuration schema
+export const ConfigurationSchema = Annotation.Root({
+  systemPromptTemplate: Annotation<string>(),
+  model: Annotation<string>(),
 });
-
-// Initialize memory to persist state between graph runs
-const agentCheckpointer = new MemorySaver();
-
-// Create the agent with tools
-const agent = createReactAgent({
-  llm: agentModel,
-  tools: [analyzeTicketTool],
-  checkpointSaver: agentCheckpointer,
-});
-
-// Get the graph from the agent
-const graph = agent.getGraph();
 
 // Define workflow name constant
 const WORKFLOW_NAME = 'ticket-processor';
 
-// Export the entrypoint function for local testing
+// Create and compile the graph
+const workflow = new StateGraph(StateAnnotation, ConfigurationSchema)
+  .addNode("agent", callModel)
+  .addNode("tools", toolNode)
+  .addEdge("tools", "agent")
+  .addEdge("__start__", "agent")
+  .addConditionalEdges("agent", shouldContinue);
+
+export const graph = workflow.compile();
+
+// Export the entrypoint function
 export async function run(input: InputType): Promise<OutputType> {
   return traceWorkflow(
     WORKFLOW_NAME,
@@ -78,28 +119,19 @@ export async function run(input: InputType): Promise<OutputType> {
         );
 
         // Run the workflow with initial state
-        const agentFinalState = await agent.invoke(
-          { 
-            messages: [
-              systemMessage,
-              new HumanMessage(validatedInput.ticket)
-            ] 
-          },
-          { 
-            configurable: { 
-              thread_id: validatedInput.ticketId 
-            } 
-          },
-        );
+        const finalState = await graph.invoke({
+          messages: [systemMessage, new HumanMessage(validatedInput.ticket)],
+          ticketId: validatedInput.ticketId,
+        });
 
         // Get the final message
-        const finalMessage = agentFinalState.messages[agentFinalState.messages.length - 1];
-        const finalContent = typeof finalMessage.content === 'string' 
-          ? finalMessage.content 
-          : JSON.stringify(finalMessage.content);
+        const lastMessage = finalState.messages[finalState.messages.length - 1];
+        const finalContent = typeof lastMessage.content === 'string' 
+          ? lastMessage.content 
+          : JSON.stringify(lastMessage.content);
 
         // Parse tool outputs from the conversation
-        const toolOutputs = agentFinalState.messages
+        const toolOutputs = finalState.messages
           .filter(msg => msg instanceof AIMessage && msg.additional_kwargs?.tool_calls)
           .flatMap(msg => (msg as AIMessage).additional_kwargs?.tool_calls || [])
           .filter(call => call.function.name === 'analyze_ticket')
@@ -108,7 +140,7 @@ export async function run(input: InputType): Promise<OutputType> {
 
         // Return formatted response
         return OutputSchema.parse({
-          messages: agentFinalState.messages,
+          messages: finalState.messages,
           final_answer: finalContent,
           status: toolOutputs.status as OutputType['status'],
           requires_human: toolOutputs.requires_human,
@@ -128,7 +160,3 @@ export async function run(input: InputType): Promise<OutputType> {
     }
   );
 }
-
-// Export both the graph and the agent
-export { graph };
-export default agent; 
