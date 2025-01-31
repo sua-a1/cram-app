@@ -34,5 +34,9 @@
   "dependencies": [".", "package.json", "package-lock.json"],
   "graphs": {
     "ticket-processor": "./agents/workflows/ticket-processor-functional.ts:agent"
+  },
+  "socket": "./graph.sock",
+  "metadata": {
+    "loop_interval": 1000
   }
 } 
