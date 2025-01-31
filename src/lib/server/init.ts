@@ -1,4 +1,4 @@
-import { setupDocumentEmbeddingUpdates } from '../../../agents/utils/document-embeddings';
+import { setupDocumentEmbeddingUpdates } from './document-embeddings';
 
 /**
  * Initialize server-side features and background jobs
