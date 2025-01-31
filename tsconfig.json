@@ -22,14 +22,15 @@
       "@/*": ["./src/*"],
       "@agents/*": ["./agents/*"]
     },
-    "types": ["vitest/globals", "@testing-library/jest-dom"]
+    "types": ["vitest/globals", "@testing-library/jest-dom"],
+    "baseUrl": "."
   },
   "include": [
     "next-env.d.ts",
-    "**/*.ts",
-    "**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
     ".next/types/**/*.ts",
     "src/__tests__/**/*"
   ],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "agents", "scripts"]
 }

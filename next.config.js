@@ -9,6 +9,8 @@ const nextConfig = {
     // Don't fail build on eslint errors during deployment
     ignoreDuringBuilds: true,
   },
+  // Configure source directory
+  pageExtensions: ['tsx', 'ts'],
   webpack: (config, { isServer }) => {
     // Exclude agent-related files from the build
     if (!isServer) {
