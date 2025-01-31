@@ -21,12 +21,13 @@
     ]
   },
   "build": {
-    "command": "npm ci --legacy-peer-deps"
+    "command": "npm install --install-strategy=shallow --legacy-peer-deps --no-audit"
   },
   "node_version": "20",
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "hello": "./agents/workflows/hello-world.ts:graph"  },
+    "hello": "./agents/workflows/hello-world.ts:graph"
+  },
   "env": ".env"
 } 
