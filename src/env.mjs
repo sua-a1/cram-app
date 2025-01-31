@@ -5,7 +5,7 @@ export const env = createEnv({
   server: {
     LANGGRAPH_API_KEY: z.string().min(1),
     LANGGRAPH_PROJECT: z.string().min(1),
-    LANGGRAPH_ENDPOINT: z.string().url().optional().default('https://api.langgraph.cloud'),
+    LANGGRAPH_ENDPOINT: z.string().url().optional().default('https://cram-agents-75dcc278627754ae969c56bff2d79eed.us.langgraph.app'),
     LANGGRAPH_ENVIRONMENT: z.enum(['development', 'production']).optional().default('development'),
     LANGSMITH_API_KEY: z.string().min(1),
   },
