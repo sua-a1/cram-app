@@ -1,22 +1,8 @@
 {
-  "project": "cram-app",
-  "endpoints": [
-    {
-      "path": "/hello",
-      "function": "./agents/workflows/hello-world.ts:run",
-      "description": "Simple hello world agent for testing"
-    },
-    {
-      "path": "/process-ticket",
-      "function": "./agents/workflows/ticket-processor.ts:run",
-      "description": "Process and respond to customer support tickets"
-    }
-  ],
-  "environment": {
-    "required": [
-      "OPENAI_API_KEY",
-      "LANGSMITH_API_KEY",
-      "LANGSMITH_PROJECT"
-    ]
-  }
+  "node_version": "20",
+  "dockerfile_lines": [],
+  "dependencies": ["."],
+  "graphs": {
+    "hello": "./agents/workflows/hello-world.ts:default"  },
+  "env": ".env"
 } 

@@ -1,122 +1,78 @@
-import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import { StateGraph, Annotation } from "@langchain/langgraph";
-import { z } from 'zod';
+import { HumanMessage, AIMessage } from "@langchain/core/messages";
+import { StateGraph, MessagesAnnotation } from "@langchain/langgraph";
+import { DynamicTool } from "@langchain/core/tools";
+import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { env } from '../config/env';
-import { traceWorkflow } from '../utils/langsmith';
 
-// Define the graph state annotation
-const StateAnnotation = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
-    reducer: (prev, next) => [...(prev || []), ...next],
-  }),
+// Define a simple hello world tool
+const helloWorldTool = new DynamicTool({
+  name: "hello_world",
+  description: "A simple tool that returns 'Hello, World!'",
+  func: async () => "Hello, World!",
 });
 
-// Initialize the LLM with validated environment variables
+// Create a tool node
+const tools = [helloWorldTool];
+const toolNode = new ToolNode(tools);
+
+// Create a model and give it access to the tools
 const model = new ChatOpenAI({
   modelName: env.OPENAI_MODEL,
   temperature: env.OPENAI_TEMPERATURE,
-});
+}).bindTools(tools);
 
-// Define input validation schema
-const InputSchema = z.object({
-  message: z.string().min(1, 'Message is required'),
-});
-
-// Define response type
-interface WorkflowResponse {
-  status: 'success' | 'error';
-  messages: BaseMessage[];
-  error?: string;
-  metadata?: {
-    processing_time?: number;
-    total_tokens?: number;
-  };
-}
-
-// Define type for messages with usage metadata
-interface MessageWithUsage extends BaseMessage {
-  usage_metadata?: {
-    total_tokens: number;
-  };
+// Define the function that determines whether to continue or not
+function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
+  const lastMessage = messages[messages.length - 1] as AIMessage;
+  // If the LLM makes a tool call, then we route to the "tools" node
+  if (lastMessage.tool_calls?.length) {
+    return "tools";
+  }
+  // Otherwise, we stop (reply to the user) using the special "__end__" node
+  return "__end__";
 }
 
 // Define the function that calls the model
-async function callModel(state: typeof StateAnnotation.State) {
-  const messages = state.messages;
-  const response = await model.invoke(messages);
+async function callModel(state: typeof MessagesAnnotation.State) {
+  const response = await model.invoke(state.messages);
+  // We return a list, because this will get added to the existing list
   return { messages: [response] };
 }
 
-// Create the workflow graph
-export function createHelloWorldWorkflow() {
-  const workflow = new StateGraph(StateAnnotation)
-    .addNode("agent", callModel)
-    .addEdge("__start__", "agent")
-    .addEdge("agent", "__end__");
+// Define a new graph
+const workflow = new StateGraph(MessagesAnnotation)
+  .addNode("agent", callModel)
+  .addNode("tools", toolNode)
+  .addEdge("tools", "agent")
+  .addEdge("__start__", "agent")
+  .addConditionalEdges("agent", shouldContinue);
 
-  return workflow;
-}
+// Compile the graph
+const graph = workflow.compile();
 
 // Define workflow name constant
 const WORKFLOW_NAME = 'hello-world';
 
-// Export the entrypoint function
-export async function run(input: { message: string }): Promise<WorkflowResponse> {
-  return traceWorkflow(
-    WORKFLOW_NAME,
-    async () => {
-      try {
-        // Validate input
-        const validatedInput = InputSchema.parse(input);
-        
-        const startTime = Date.now();
-        console.log(`[${env.NODE_ENV}] Processing message: ${validatedInput.message}`);
+// Export the entrypoint function for local testing
+export async function run(input: { message: string }) {
+  try {
+    // Run the workflow with initial state
+    const finalState = await graph.invoke({
+      messages: [new HumanMessage(input.message)],
+    });
 
-        // Create and compile the workflow
-        const workflow = createHelloWorldWorkflow();
-        const app = workflow.compile();
+    return {
+      messages: finalState.messages,
+      final_answer: finalState.messages[finalState.messages.length - 1].content,
+    };
 
-        // Run the workflow with initial state
-        const finalState = await app.invoke({
-          messages: [
-            new HumanMessage(validatedInput.message),
-          ],
-        });
+  } catch (error) {
+    console.error('Workflow error:', error);
+    throw error;
+  }
+}
 
-        // Calculate processing time
-        const processingTime = Date.now() - startTime;
-
-        // Calculate total tokens used
-        const totalTokens = finalState.messages.reduce((total, msg) => {
-          const messageWithUsage = msg as MessageWithUsage;
-          return total + (messageWithUsage.usage_metadata?.total_tokens || 0);
-        }, 0);
-
-        // Return formatted response
-        return {
-          status: 'success',
-          messages: finalState.messages,
-          metadata: {
-            processing_time: processingTime,
-            total_tokens: totalTokens
-          }
-        };
-
-      } catch (error) {
-        console.error('Workflow error:', error);
-        return {
-          status: 'error',
-          messages: [],
-          error: error instanceof Error ? error.message : 'Unknown error occurred'
-        };
-      }
-    },
-    {
-      tags: ['agent', 'hello-world'],
-      metadata: {
-        input_message: input.message
-      }
-    }
-  );
-} 
+// Export the graph and workflow
+export { graph };
+export default workflow; 

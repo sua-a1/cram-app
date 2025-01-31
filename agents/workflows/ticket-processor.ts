@@ -1,202 +1,134 @@
 import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import { StateGraph, Annotation } from "@langchain/langgraph";
-import { BaseStore } from "@langchain/core/stores";
-import { ToolNode } from "@langchain/langgraph/prebuilt";
-import { tool } from "@langchain/core/tools";
+import { MemorySaver } from "@langchain/langgraph";
+import { createReactAgent } from "@langchain/langgraph/prebuilt";
 import { z } from 'zod';
-import { AgentState } from '../config/langgraph';
-import { findSimilarTickets } from '../utils/ticket-context-embeddings';
-import { supabase } from '../utils/supabase';
 import { env } from '../config/env';
+import { traceWorkflow } from '../utils/langsmith';
+import { DynamicTool } from "@langchain/core/tools";
 
-// Define the graph state annotation
-const StateAnnotation = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
-    reducer: (prev, next) => [...(prev || []), ...next],
-  }),
-  current_ticket: Annotation<AgentState['current_ticket']>({
-    reducer: (_, next) => next,
-  }),
-  similar_tickets: Annotation<AgentState['similar_tickets']>({
-    reducer: (_, next) => next,
-  }),
-  error: Annotation<string | undefined>({
-    reducer: (_, next) => next,
-  }),
-});
-
-// Initialize the LLM with validated environment variables
-const model = new ChatOpenAI({
-  modelName: env.OPENAI_MODEL,
-  temperature: env.OPENAI_TEMPERATURE,
-});
-
-// Define tool parameter types
-interface LoadTicketParams {
-  ticketId: string;
-}
-
-interface FindSimilarTicketsParams {
-  ticketId: string;
-}
-
-// Define tools
-const loadTicketTool = tool(async ({ ticketId }: LoadTicketParams) => {
-  const { data: ticket, error } = await supabase
-    .from('tickets')
-    .select('*')
-    .eq('id', ticketId)
-    .single();
-
-  if (error || !ticket) {
-    throw new Error(error?.message || 'Ticket not found');
-  }
-
-  return ticket;
-}, {
-  name: "load_ticket",
-  description: "Load ticket details from the database",
-  schema: z.object({
-    ticketId: z.string().uuid().describe("The ID of the ticket to load"),
-  }),
-});
-
-const findSimilarTicketsTool = tool(async ({ ticketId }: FindSimilarTicketsParams) => {
-  const similarTickets = await findSimilarTickets(ticketId);
-  return similarTickets;
-}, {
-  name: "find_similar_tickets",
-  description: "Find similar tickets using vector similarity search",
-  schema: z.object({
-    ticketId: z.string().uuid().describe("The ID of the ticket to find similar tickets for"),
-  }),
-});
-
-const tools = [loadTicketTool, findSimilarTicketsTool];
-const toolNode = new ToolNode(tools);
-
-// Bind tools to the model
-const agentModel = model.bindTools(tools);
-
-// Define the function that determines whether to continue
-function shouldContinue(state: typeof StateAnnotation.State) {
-  const messages = state.messages;
-  const lastMessage = messages[messages.length - 1] as AIMessage;
-
-  if (lastMessage.tool_calls?.length) {
-    return "tools";
-  }
-  return "__end__";
-}
-
-// Define the function that calls the model
-async function callModel(state: typeof StateAnnotation.State) {
-  const messages = state.messages;
-  const response = await agentModel.invoke(messages);
-  return { messages: [response] };
-}
-
-// Create the workflow graph
-export function createTicketWorkflow() {
-  const workflow = new StateGraph(StateAnnotation)
-    .addNode("agent", callModel)
-    .addNode("tools", toolNode)
-    .addEdge("__start__", "agent")
-    .addConditionalEdges("agent", shouldContinue)
-    .addEdge("tools", "agent");
-
-  return workflow;
-}
-
-// Define input validation schema for cloud deployment
+// Define input/output schemas
 const InputSchema = z.object({
-  current_ticket: z.object({
-    id: z.string().uuid(),
-    // Add other ticket fields as needed
-  }).nullable(),
-  similar_tickets: z.array(z.any()).nullable(),
-  error: z.string().optional()
+  ticket: z.string().min(1, 'Ticket content is required'),
+  ticketId: z.string().uuid('Valid ticket ID is required'),
 });
 
-// Define response type for better type safety
-interface WorkflowResponse {
-  status: 'success' | 'error';
-  messages: BaseMessage[];
-  error?: string;
-  metadata?: {
-    ticket_id?: string;
-    processing_time?: number;
-    total_tokens?: number;
-  };
-}
+const OutputSchema = z.object({
+  messages: z.array(z.any()),
+  final_answer: z.string(),
+  status: z.enum(['open', 'in-progress', 'closed']),
+  requires_human: z.boolean(),
+});
 
-// Define type for messages with usage metadata
-interface MessageWithUsage extends BaseMessage {
-  usage_metadata?: {
-    total_tokens: number;
-  };
-}
+type InputType = z.infer<typeof InputSchema>;
+type OutputType = z.infer<typeof OutputSchema>;
 
-// Export the entrypoint function for LangGraph Cloud
-export async function run(state: AgentState): Promise<WorkflowResponse> {
-  try {
-    // Validate input state
-    const validatedState = InputSchema.parse(state);
-    
-    if (!validatedState.current_ticket) {
-      throw new Error('No ticket provided in the input state');
-    }
-
-    const startTime = Date.now();
-    console.log(`[${env.NODE_ENV}] Processing ticket: ${validatedState.current_ticket.id}`);
-
-    // Create and compile the workflow
-    const workflow = createTicketWorkflow();
-    const app = workflow.compile();
-
-    // Run the workflow with initial state
-    const finalState = await app.invoke({
-      messages: [
-        new HumanMessage(`Process ticket: ${validatedState.current_ticket.id}`),
-      ],
-    }, {
-      configurable: { 
-        thread_id: validatedState.current_ticket.id,
-        metadata: {
-          ticket_id: validatedState.current_ticket.id,
-          environment: env.NODE_ENV,
-          model: env.OPENAI_MODEL,
-        }
-      }
+// Define tools for ticket processing
+const analyzeTicketTool = new DynamicTool({
+  name: "analyze_ticket",
+  description: "Analyzes a support ticket and determines if it requires human intervention",
+  func: async (ticket: string) => {
+    const requiresHuman = ticket.toLowerCase().includes('escalate') || 
+                         ticket.toLowerCase().includes('human assistance');
+    return JSON.stringify({
+      requires_human: requiresHuman,
+      status: requiresHuman ? 'in-progress' : 'open'
     });
+  },
+});
 
-    // Calculate processing time
-    const processingTime = Date.now() - startTime;
+// Initialize the model with tools
+const agentModel = new ChatOpenAI({ 
+  modelName: env.OPENAI_MODEL,
+  temperature: env.OPENAI_TEMPERATURE 
+});
 
-    // Calculate total tokens used
-    const totalTokens = finalState.messages.reduce((total, msg) => {
-      const messageWithUsage = msg as MessageWithUsage;
-      return total + (messageWithUsage.usage_metadata?.total_tokens || 0);
-    }, 0);
+// Initialize memory to persist state between graph runs
+const agentCheckpointer = new MemorySaver();
 
-    // Return formatted response
-    return {
-      status: 'success',
-      messages: finalState.messages,
-      metadata: {
-        ticket_id: validatedState.current_ticket.id,
-        processing_time: processingTime,
-        total_tokens: totalTokens
+// Create the agent with tools
+const agent = createReactAgent({
+  llm: agentModel,
+  tools: [analyzeTicketTool],
+  checkpointSaver: agentCheckpointer,
+});
+
+// Get the graph from the agent
+const graph = agent.getGraph();
+
+// Define workflow name constant
+const WORKFLOW_NAME = 'ticket-processor';
+
+// Export the entrypoint function for local testing
+export async function run(input: InputType): Promise<OutputType> {
+  return traceWorkflow(
+    WORKFLOW_NAME,
+    async () => {
+      try {
+        // Validate input
+        const validatedInput = InputSchema.parse(input);
+        
+        console.log(`[${env.NODE_ENV}] Processing ticket: ${validatedInput.ticket.substring(0, 50)}...`);
+
+        // Add system message for ticket processing context
+        const systemMessage = new HumanMessage(
+          "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
+          "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
+          "Use the analyze_ticket tool to determine if human intervention is needed."
+        );
+
+        // Run the workflow with initial state
+        const agentFinalState = await agent.invoke(
+          { 
+            messages: [
+              systemMessage,
+              new HumanMessage(validatedInput.ticket)
+            ] 
+          },
+          { 
+            configurable: { 
+              thread_id: validatedInput.ticketId 
+            } 
+          },
+        );
+
+        // Get the final message
+        const finalMessage = agentFinalState.messages[agentFinalState.messages.length - 1];
+        const finalContent = typeof finalMessage.content === 'string' 
+          ? finalMessage.content 
+          : JSON.stringify(finalMessage.content);
+
+        // Parse tool outputs from the conversation
+        const toolOutputs = agentFinalState.messages
+          .filter(msg => msg instanceof AIMessage && msg.additional_kwargs?.tool_calls)
+          .flatMap(msg => (msg as AIMessage).additional_kwargs?.tool_calls || [])
+          .filter(call => call.function.name === 'analyze_ticket')
+          .map(call => JSON.parse(call.function.arguments))
+          .pop() || { requires_human: false, status: 'open' };
+
+        // Return formatted response
+        return OutputSchema.parse({
+          messages: agentFinalState.messages,
+          final_answer: finalContent,
+          status: toolOutputs.status as OutputType['status'],
+          requires_human: toolOutputs.requires_human,
+        });
+
+      } catch (error) {
+        console.error('Workflow error:', error);
+        throw error;
       }
-    };
+    },
+    {
+      tags: ['agent', 'ticket-processor'],
+      metadata: {
+        input_ticket: input.ticket,
+        ticket_id: input.ticketId,
+      }
+    }
+  );
+}
 
-  } catch (error) {
-    console.error('Workflow error:', error);
-    return {
-      status: 'error',
-      messages: [],
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
-    };
-  }
-} 
+// Export both the graph and the agent
+export { graph };
+export default agent; 

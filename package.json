@@ -12,11 +12,13 @@
     "test": "vitest",
     "test:watch": "vitest watch",
     "test:coverage": "vitest run --coverage",
-    "test:ui": "vitest --ui"
+    "test:ui": "vitest --ui",
+    "langgraph:dev": "npx @langchain/langgraph-cli dev"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@langchain/anthropic": "^0.3.12",
+    "@langchain/community": "^0.3.28",
     "@langchain/core": "^0.3.37",
     "@langchain/langgraph": "^0.2.44",
     "@langchain/langgraph-sdk": "^0.0.36",
@@ -76,6 +78,7 @@
   },
   "devDependencies": {
     "@chromatic-com/storybook": "^3.2.4",
+    "@langchain/langgraph-cli": "^0.0.8",
     "@storybook/addon-essentials": "^8.5.1",
     "@storybook/addon-interactions": "^8.5.1",
     "@storybook/addon-onboarding": "^8.5.1",

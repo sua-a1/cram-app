@@ -8,7 +8,7 @@ const envSchema = z.object({
   
   // OpenAI configuration
   OPENAI_API_KEY: z.string().min(1),
-  OPENAI_MODEL: z.string().default('gpt-4-1106-preview'),
+  OPENAI_MODEL: z.string().default('gpt-4o'),
   OPENAI_TEMPERATURE: z.number().min(0).max(2).default(0.7),
   
   // LangSmith configuration - optional for local testing
