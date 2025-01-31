@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage, AIMessage } from "@langchain/core/messages";
-import { StateGraph, MessagesAnnotation } from "@langchain/langgraph";
+import { HumanMessage, AIMessage, BaseMessage} from "@langchain/core/messages";
+import { StateGraph, MessagesAnnotation, MemorySaver, Annotation } from "@langchain/langgraph";
 import { DynamicTool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
 import { env } from '../config/env.js';
@@ -10,6 +10,14 @@ console.log('Initializing ChatOpenAI with:', {
   modelName: env.OPENAI_MODEL,
   temperature: env.OPENAI_TEMPERATURE,
   apiKeyPresent: env.OPENAI_API_KEY ? 'Yes' : 'No'
+});
+
+// Define the graph state
+// See here for more info: https://langchain-ai.github.io/langgraphjs/how-tos/define-state/
+const StateAnnotation = Annotation.Root({
+  messages: Annotation<BaseMessage[]>({
+    reducer: (x, y) => x.concat(y),
+  }),
 });
 
 // Define a simple hello world tool
@@ -31,8 +39,8 @@ const model = new ChatOpenAI({
 }).bindTools(tools);
 
 // Define the function that determines whether to continue or not
-function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
-  const lastMessage = messages[messages.length - 1] as AIMessage;
+function shouldContinue(state: typeof StateAnnotation.State) {
+  const lastMessage = state.messages[state.messages.length - 1] as AIMessage;
   // If the LLM makes a tool call, then we route to the "tools" node
   if (lastMessage.tool_calls?.length) {
     return "tools";
@@ -42,25 +50,39 @@ function shouldContinue({ messages }: typeof MessagesAnnotation.State) {
 }
 
 // Define the function that calls the model
-async function callModel(state: typeof MessagesAnnotation.State) {
+async function callModel(state: typeof StateAnnotation.State) {
   const response = await model.invoke(state.messages);
   // We return a list, because this will get added to the existing list
   return { messages: [response] };
 }
 
+export const ConfigurationSchema = Annotation.Root({
+  /**
+   * The system prompt to be used by the agent.
+   */
+  systemPromptTemplate: Annotation<string>,
+
+  /**
+   *
+   * The name of the language model to be used by the agent.
+   */
+  model: Annotation<string>,
+});
+
 // Define a new graph
-const workflow = new StateGraph(MessagesAnnotation)
+const workflow = new StateGraph(StateAnnotation, ConfigurationSchema)
   .addNode("agent", callModel)
   .addNode("tools", toolNode)
   .addEdge("tools", "agent")
   .addEdge("__start__", "agent")
   .addConditionalEdges("agent", shouldContinue);
 
-// Compile the graph
-const graph = workflow.compile();
 
-// Export the workflow and graph
-export { workflow, graph };
+//const checkpointer = new MemorySaver();
+
+// Compile the graph
+export const graph = workflow.compile();
+
 
 // Export the run function
 export async function run(input: { message: string }) {
