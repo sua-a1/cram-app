@@ -1,8 +1,32 @@
 {
+  "name": "cram-support-agent",
+  "version": "0.1.0",
+  "description": "Customer support agent for Cram ticketing system",
+  "entry": "agents/workflows/hello-world.ts",
+  "environment": {
+    "required": [
+      "OPENAI_API_KEY",
+      "OPENAI_MODEL",
+      "OPENAI_TEMPERATURE"
+    ],
+    "optional": [
+      "LANGSMITH_API_KEY",
+      "LANGSMITH_PROJECT",
+      "LANGSMITH_ENDPOINT",
+      "LANGSMITH_TRACING",
+      "LANGGRAPH_API_KEY",
+      "LANGGRAPH_PROJECT",
+      "LANGGRAPH_ENDPOINT",
+      "LANGGRAPH_ENVIRONMENT"
+    ]
+  },
+  "build": {
+    "command": "npm install --legacy-peer-deps"
+  },
   "node_version": "20",
   "dockerfile_lines": [],
   "dependencies": ["."],
   "graphs": {
-    "hello": "./agents/workflows/hello-world.ts:default"  },
+    "hello": "./agents/workflows/hello-world.ts:graph"  },
   "env": ".env"
 } 
