@@ -11,12 +11,9 @@ const nextConfig = {
   },
   // Configure build output
   distDir: '.next',
-  // Configure app directory
   experimental: {
     // Needed for some of our dependencies
-    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli'],
-    // Enable app directory
-    appDir: true
+    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli']
   },
   webpack: (config, { isServer }) => {
     // Exclude agent-related files from the build
