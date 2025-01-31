@@ -1,12 +1,14 @@
+export type SourceType = 'document' | 'conversation';
+
 export interface ChunkMetadata {
-  sourceType: 'document' | 'conversation' | 'ticket';
+  sourceType: SourceType;
   sourceId: string;
+  title?: string;
   chunkIndex: number;
   totalChunks: number;
-  startChar?: number;
-  endChar?: number;
-  title?: string;
-  additionalContext?: Record<string, unknown>;
+  startChar: number;
+  endChar: number;
+  additionalContext?: Record<string, any>;
 }
 
 export interface TextChunk {
@@ -16,12 +18,19 @@ export interface TextChunk {
 
 export interface EmbeddingVector {
   embedding: number[];
-  text: string;
+  chunkText: string;
   metadata: ChunkMetadata;
 }
 
 export interface EmbeddingResult {
   success: boolean;
+  vectors?: EmbeddingVector[];
+  error?: string;
+}
+
+export interface ProcessContentResult {
+  success: boolean;
+  chunks?: number;
   vectors?: EmbeddingVector[];
   error?: string;
 } 

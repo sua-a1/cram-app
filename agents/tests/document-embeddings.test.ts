@@ -1,15 +1,10 @@
+import './mocks';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { processDocument } from '../utils/document-embeddings';
-import dotenv from 'dotenv';
-import path from 'path';
+import { mockFrom, mockInsert } from './mocks';
 
-// Load environment variables
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
-async function testDocumentEmbeddings() {
-  console.log('Starting document embeddings test...');
-
-  // Test Case 1: Document with direct content (no file)
-  const directContentDoc = {
+describe('Document Embeddings Generation', () => {
+  const baseDocument = {
     id: '123e4567-e89b-12d3-a456-426614174000',
     title: 'Test Document',
     description: 'This is a test document description.',
@@ -25,27 +20,52 @@ async function testDocumentEmbeddings() {
     metadata: {}
   };
 
-  console.log('\nTesting document with direct content...');
-  const result1 = await processDocument(directContentDoc, (phase, completed, total) => {
-    console.log(`Progress - ${phase}: ${completed}/${total}`);
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockInsert.mockResolvedValue({ error: null });
   });
-  console.log('Result:', result1 ? 'Success' : 'Failed');
 
-  // Test Case 2: Document with file in bucket (to be implemented when PDF extraction is ready)
-  const fileDoc = {
-    ...directContentDoc,
-    id: '123e4567-e89b-12d3-a456-426614174001',
-    content: null,
-    file_url: 'test/sample.txt',
-    file_type: 'txt'
-  };
+  it('should process document with direct content successfully', async () => {
+    const result = await processDocument(baseDocument);
 
-  console.log('\nTesting document with file in bucket...');
-  const result2 = await processDocument(fileDoc, (phase, completed, total) => {
-    console.log(`Progress - ${phase}: ${completed}/${total}`);
+    expect(result).toBe(true);
+    expect(mockFrom).toHaveBeenCalledWith('document_embeddings');
+    expect(mockInsert).toHaveBeenCalled();
   });
-  console.log('Result:', result2 ? 'Success' : 'Failed');
-}
 
-// Run the test
-testDocumentEmbeddings().catch(console.error); 
+  it('should handle document with file in bucket', async () => {
+    const fileDocument = {
+      ...baseDocument,
+      id: '123e4567-e89b-12d3-a456-426614174001',
+      content: null,
+      file_url: 'test/sample.txt',
+      file_type: 'txt'
+    };
+
+    const result = await processDocument(fileDocument);
+
+    expect(result).toBe(true);
+    expect(mockFrom).toHaveBeenCalledWith('document_embeddings');
+    expect(mockInsert).toHaveBeenCalled();
+  });
+
+  it('should handle Supabase errors gracefully', async () => {
+    mockInsert.mockResolvedValueOnce({ error: { message: 'Error storing document embedding' } });
+
+    const result = await processDocument(baseDocument);
+
+    expect(result).toBe(false);
+  });
+
+  it('should handle empty content gracefully', async () => {
+    const emptyDocument = {
+      ...baseDocument,
+      content: '',
+      file_url: null
+    };
+
+    const result = await processDocument(emptyDocument);
+
+    expect(result).toBe(false);
+  });
+}); 

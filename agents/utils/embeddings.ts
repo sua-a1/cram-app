@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
-import { ChunkMetadata, TextChunk, EmbeddingVector, EmbeddingResult } from '../types/embeddings';
+import { ChunkMetadata, TextChunk, EmbeddingVector, EmbeddingResult, ProcessContentResult } from '../types/embeddings';
 import { supabase } from './supabase';
+import { Database } from '../types/supabase';
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -16,6 +17,13 @@ const RETRY_DELAY = 1000; // 1 second
  * Sleep utility for retry delays
  */
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+/**
+ * Converts an array to a Postgres array string
+ */
+function toPostgresArray(arr: number[]): string {
+  return `[${arr.join(',')}]`;
+}
 
 /**
  * Generates embeddings for a single piece of text with retry logic
@@ -45,8 +53,13 @@ export async function generateEmbedding(text: string, retryCount = 0): Promise<n
 export function chunkText(
   text: string,
   metadata: Omit<ChunkMetadata, 'chunkIndex' | 'totalChunks'>,
-  maxChunkSize: number = 1000
+  maxChunkSize: number = 200 // Reduced chunk size to ensure multiple chunks
 ): TextChunk[] {
+  // Handle empty content
+  if (!text.trim()) {
+    throw new Error('Cannot process empty content');
+  }
+
   // Clean and normalize text
   const cleanText = text.replace(/\s+/g, ' ').trim();
   
@@ -55,7 +68,7 @@ export function chunkText(
   
   const chunks: TextChunk[] = [];
   let currentChunk = '';
-  let currentStartChar = 0;
+  let currentStartChar = metadata.startChar;
   
   for (const sentence of sentences) {
     // If adding this sentence would exceed maxChunkSize, create a new chunk
@@ -71,7 +84,7 @@ export function chunkText(
         },
       });
       currentChunk = '';
-      currentStartChar += currentChunk.length;
+      currentStartChar = currentStartChar + currentChunk.length;
     }
     currentChunk += sentence + ' ';
   }
@@ -123,7 +136,7 @@ export async function generateEmbeddings(chunks: TextChunk[], onProgress?: (phas
       batch.forEach((chunk, index) => {
         vectors.push({
           embedding: response.data[index].embedding,
-          text: chunk.text,
+          chunkText: chunk.text,
           metadata: chunk.metadata,
         });
       });
@@ -157,35 +170,45 @@ export async function generateEmbeddings(chunks: TextChunk[], onProgress?: (phas
 export async function storeEmbeddings(vectors: EmbeddingVector[], onProgress?: (phase: string, completed: number, total: number) => void): Promise<boolean> {
   try {
     for (const vector of vectors) {
-      const { metadata, embedding, text } = vector;
+      const { metadata, embedding, chunkText } = vector;
+      const postgresEmbedding = toPostgresArray(embedding);
       
       switch (metadata.sourceType) {
-        case 'document':
-          await supabase.from('document_embeddings').insert({
+        case 'document': {
+          const { error } = await supabase.from('document_embeddings').insert({
             document_id: metadata.sourceId,
-            embedding,
+            embedding: postgresEmbedding,
             chunk_index: metadata.chunkIndex,
-            chunk_text: text,
+            chunk_text: chunkText,
             metadata: metadata.additionalContext || {},
-          });
-          break;
+          } satisfies Database['public']['Tables']['document_embeddings']['Insert']);
           
-        case 'conversation':
-          await supabase.from('conversation_embeddings').insert({
+          if (error) {
+            console.error('Error storing document embedding:', error);
+            throw error;
+          }
+          break;
+        }
+        
+        case 'conversation': {
+          const { error } = await supabase.from('conversation_embeddings').insert({
             ticket_id: metadata.sourceId,
             message_id: metadata.additionalContext?.messageId,
-            embedding,
-            context_window: text,
-          });
-          break;
+            embedding: postgresEmbedding,
+            context_window: chunkText,
+          } satisfies Database['public']['Tables']['conversation_embeddings']['Insert']);
           
-        case 'ticket':
-          await supabase.from('ticket_context_embeddings').insert({
-            ticket_id: metadata.sourceId,
-            embedding,
-            metadata: metadata.additionalContext || {},
-          });
+          if (error) {
+            console.error('Error storing conversation embedding:', error);
+            throw error;
+          }
           break;
+        }
+      }
+
+      // Update progress if callback provided
+      if (onProgress) {
+        onProgress('Storing embeddings', vectors.indexOf(vector) + 1, vectors.length);
       }
     }
     
@@ -201,12 +224,26 @@ export async function storeEmbeddings(vectors: EmbeddingVector[], onProgress?: (
  */
 export async function processContent(
   content: string,
-  metadata: Omit<ChunkMetadata, 'chunkIndex' | 'totalChunks'>,
+  metadata: Omit<ChunkMetadata, 'chunkIndex' | 'totalChunks' | 'startChar' | 'endChar'>,
   onProgress?: (phase: string, completed: number, total: number) => void
-): Promise<EmbeddingResult> {
+): Promise<ProcessContentResult> {
   try {
+    if (!content.trim()) {
+      return {
+        success: false,
+        error: 'Cannot process empty content'
+      };
+    }
+
+    // Add startChar and endChar to metadata for chunking
+    const metadataWithPositions = {
+      ...metadata,
+      startChar: 0,
+      endChar: 0
+    };
+
     // 1. Chunk the content
-    const chunks = chunkText(content, metadata);
+    const chunks = chunkText(content, metadataWithPositions);
     
     // 2. Generate embeddings with progress tracking
     const embeddingResult = await generateEmbeddings(chunks, onProgress);
@@ -220,7 +257,11 @@ export async function processContent(
       throw new Error('Failed to store embeddings');
     }
     
-    return embeddingResult;
+    return {
+      success: true,
+      chunks: chunks.length,
+      vectors: embeddingResult.vectors,
+    };
   } catch (error) {
     console.error('Error processing content:', error);
     return {

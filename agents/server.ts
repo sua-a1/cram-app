@@ -2,18 +2,36 @@ import { setupConversationEmbeddingUpdates } from './utils/conversation-embeddin
 import { run } from './workflows/ticket-processor'
 import { AgentState } from './config/langgraph'
 
+interface ServerInitResult {
+  success: boolean
+  documentEmbeddingSubscription: any | null
+  error?: any
+}
+
 /**
  * Initialize server features required for testing
  */
-export async function initializeServer() {
+export async function initializeServer(): Promise<ServerInitResult> {
   console.log('Initializing server features...')
   
-  // Setup conversation embedding background job
-  console.log('Setting up conversation embedding background job...')
-  const subscription = await setupConversationEmbeddingUpdates()
-  console.log('Conversation embedding background job initialized successfully')
-  
-  return subscription
+  try {
+    // Setup conversation embedding background job
+    console.log('Setting up conversation embedding background job...')
+    const subscription = await setupConversationEmbeddingUpdates()
+    console.log('Conversation embedding background job initialized successfully')
+    
+    return {
+      documentEmbeddingSubscription: subscription,
+      success: true
+    }
+  } catch (error) {
+    console.error('Error initializing server:', error)
+    return {
+      success: false,
+      error,
+      documentEmbeddingSubscription: null
+    }
+  }
 }
 
 /**
@@ -23,18 +41,16 @@ export async function processTicket(ticketId: string) {
   try {
     console.log(`Processing ticket ${ticketId}...`)
     
-    const initialState: AgentState = {
-      messages: [],
-      current_ticket: {
-        id: ticketId,
-        subject: '',
-        description: '',
-        status: '',
-        priority: '',
-      },
-    }
-
-    const result = await run(initialState)
+    // Get ticket details from database
+    const { db } = await import('./lib/server/supabase')
+    const ticket = await db.tickets.get(ticketId)
+    
+    const result = await run({
+      ticket: ticket.description,
+      ticketId: ticket.id,
+      userId: ticket.user_id,
+      previousMessages: []
+    })
     console.log('Ticket processing completed successfully')
     
     return result

@@ -1,11 +1,10 @@
 import { createClient } from '@supabase/supabase-js';
 import { processContent } from './embeddings';
 import { ChunkMetadata } from '../types/embeddings';
-import type { Database } from '@/types/supabase';
-import { supabase } from './supabase';
+import { supabase } from '../lib/server/supabase';
 import { extractTextFromPDF } from './pdf-extractor';
 
-type KnowledgeDocument = Database['public']['Tables']['knowledge_documents']['Row'];
+type KnowledgeDocument = any;
 
 /**
  * Download a file from a public URL

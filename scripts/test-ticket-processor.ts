@@ -4,7 +4,7 @@ import { analyzeTicketTool } from '../agents/tools/analyze-ticket';
 import { documentRetrievalTool } from '../agents/tools/document-retrieval-tool';
 import { v4 as uuidv4 } from 'uuid';
 import { run } from '../agents/workflows/ticket-processor';
-import { createServiceClient } from '@/lib/server/supabase';
+import { createServiceClient } from '../agents/lib/server/supabase';
 
 // Test user ID (should match a user in your database)
 const TEST_USER_ID = '5281f8db-7dd3-488d-9fa4-2dc1e098ee36';

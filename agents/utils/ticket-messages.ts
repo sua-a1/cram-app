@@ -1,7 +1,7 @@
 import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ToolMessage } from "@langchain/core/messages";
 import { AIMessageChunk } from "@langchain/core/messages";
-import { createServiceClient } from '@/lib/server/supabase';
+import { createServiceClient } from '../lib/server/supabase';
 
 // AI agent profile ID (created in migration)
 const AI_AGENT_ID = '00000000-0000-0000-0000-000000000000';

@@ -1,5 +1,5 @@
 import { supabase } from '../utils/supabase';
-import { initializeServer } from '../../src/lib/server/init';
+import { initializeServer } from '../server';
 import dotenv from 'dotenv';
 import path from 'path';
 

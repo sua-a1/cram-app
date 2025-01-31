@@ -1,15 +1,10 @@
 import { z } from 'zod';
 import { config } from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
-
-// Get the directory name of the current module
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import path from 'path';
 
 // Try to load .env in development, but don't fail if it doesn't exist
 try {
-  const envPath = resolve(__dirname, '../../.env');
+  const envPath = path.resolve(process.cwd(), '.env');
   console.log('Attempting to load .env file from:', envPath);
   config({ path: envPath });
 } catch (error) {
