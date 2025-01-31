@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server';
-import { run } from '../../../../agents/workflows/hello-world';
-import { env } from '../../../../agents/config/env';
-import { langsmith } from '../../../../agents/utils/langsmith';
+
+// Import stubs or actual implementations based on environment
+const { helloWorldAgent, langsmith, envConfig } = process.env.VERCEL
+  ? require('../../../lib/stubs/agent-stubs')
+  : {
+      helloWorldAgent: require('../../../../agents/workflows/hello-world'),
+      langsmith: require('../../../../agents/utils/langsmith'),
+      envConfig: require('../../../../agents/config/env')
+    };
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
@@ -20,13 +26,13 @@ export async function POST(request: Request) {
     }
 
     // Log LangSmith status
-    if (langsmith && env.LANGSMITH_TRACING) {
-      console.log(`[${requestId}] LangSmith tracing enabled for project: ${env.LANGSMITH_PROJECT}`);
+    if (langsmith && envConfig.LANGSMITH_TRACING) {
+      console.log(`[${requestId}] LangSmith tracing enabled for project: ${envConfig.LANGSMITH_PROJECT}`);
     } else {
       console.log(`[${requestId}] LangSmith tracing disabled`);
     }
 
-    const result = await run({ message: body.message });
+    const result = await helloWorldAgent.invoke();
     console.log(`[${requestId}] Processing result:`, result);
 
     if (result.status === 'error') {
