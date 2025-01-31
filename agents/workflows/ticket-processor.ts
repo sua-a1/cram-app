@@ -77,10 +77,38 @@ function shouldContinue(state: typeof StateAnnotation.State) {
 
 // Define the function that calls the model
 async function callModel(state: typeof StateAnnotation.State) {
-  const response = await model.invoke(state.messages);
+  // Debug logging
+  console.log('Messages before model invocation:', state.messages.map(msg => ({
+    type: msg?.constructor?.name,
+    content: msg?.content,
+    _type: msg?._getType?.(),
+    additional_kwargs: msg?.additional_kwargs
+  })));
+
+  // Validate messages array
+  const validMessages = state.messages
+    .filter(msg => msg !== null && msg !== undefined)
+    .map(msg => {
+      if (msg instanceof BaseMessage) return msg;
+      if (typeof msg === 'string') return new HumanMessage(msg);
+      console.warn('Invalid message type:', msg);
+      return null;
+    })
+    .filter(msg => msg !== null);
+
+  if (validMessages.length === 0) {
+    throw new Error('No valid messages to process');
+  }
+
+  // Ensure the last message exists and is valid
+  const lastUserMessage = validMessages[validMessages.length - 1];
+  if (!lastUserMessage) {
+    throw new Error('No valid last message found');
+  }
+
+  const response = await model.invoke(validMessages);
   
   // Store the latest message pair
-  const lastUserMessage = state.messages[state.messages.length - 1];
   await storeTicketMessages(
     state.ticketId, 
     [lastUserMessage, response], 
@@ -166,10 +194,20 @@ export async function run(input: InputType): Promise<OutputType> {
 
         // Run the workflow with initial state
         const finalState = await graph.invoke({
-          messages: initialMessages,
+          messages: initialMessages.filter(msg => {
+            if (!msg) {
+              console.warn('Filtered out null message during state initialization');
+              return false;
+            }
+            if (!(msg instanceof BaseMessage)) {
+              console.warn('Filtered out non-BaseMessage during state initialization:', msg);
+              return false;
+            }
+            return true;
+          }),
           ticketId: validatedInput.ticketId,
           userId: validatedInput.userId,
-          conversationHistory: ticketHistory
+          conversationHistory: ticketHistory.filter(msg => msg instanceof BaseMessage)
         });
 
         // Store final AI message with proper ticket ID

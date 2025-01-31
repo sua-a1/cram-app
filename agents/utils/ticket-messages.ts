@@ -132,28 +132,41 @@ export async function getTicketMessages(ticketId: string): Promise<BaseMessage[]
   return messages
     .map(msg => {
       try {
-        const content = msg.body || '';
-        const additionalKwargs = msg.metadata || {};
-
-        if (!content && !additionalKwargs) {
-          console.warn('Skipping invalid message:', msg);
+        // Ensure content is a string
+        const content = typeof msg.body === 'string' ? msg.body.trim() : '';
+        if (!content) {
+          console.warn('Empty message content:', msg);
           return null;
         }
 
+        // Ensure metadata is an object
+        const additionalKwargs = typeof msg.metadata === 'object' ? msg.metadata || {} : {};
+
+        // Create appropriate message instance
+        let message: BaseMessage | null = null;
         if (msg.author_id === AI_AGENT_ID) {
           if (msg.metadata?.is_chunk) {
-            return new AIMessageChunk({ content, additional_kwargs: additionalKwargs });
+            message = new AIMessageChunk({ content, additional_kwargs: additionalKwargs });
+          } else {
+            message = msg.message_type === 'internal'
+              ? new SystemMessage(content, additionalKwargs)
+              : new AIMessage(content, additionalKwargs);
           }
-          return msg.message_type === 'internal'
-            ? new SystemMessage(content, additionalKwargs)
-            : new AIMessage(content, additionalKwargs);
         } else {
-          return new HumanMessage(content, additionalKwargs);
+          message = new HumanMessage(content, additionalKwargs);
         }
+
+        // Validate created message
+        if (!(message instanceof BaseMessage)) {
+          console.warn('Failed to create valid message instance:', msg);
+          return null;
+        }
+
+        return message;
       } catch (error) {
         console.error('Error converting message:', error, msg);
         return null;
       }
     })
-    .filter(msg => msg !== null);
+    .filter((msg): msg is BaseMessage => msg !== null);
 } 
