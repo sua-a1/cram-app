@@ -48,31 +48,47 @@ const workflow = new StateGraph(MessagesAnnotation)
   .addEdge("__start__", "agent")
   .addConditionalEdges("agent", shouldContinue);
 
+// Finally, we compile it into a LangChain Runnable.
+const app = workflow.compile();
+
+// Use the agent
+const finalState = await app.invoke({
+  messages: [new HumanMessage("what is the weather in sf")],
+});
+console.log(finalState.messages[finalState.messages.length - 1].content);
+
+const nextState = await app.invoke({
+  // Including the messages from the previous run gives the LLM context.
+  // This way it knows we're asking about the weather in NY
+  messages: [...finalState.messages, new HumanMessage("what about ny")],
+    });
+console.log(nextState.messages[nextState.messages.length - 1].content);
+
 // Compile the graph
-const graph = workflow.compile();
+//const graph = workflow.compile();
 
 // Define workflow name constant
-const WORKFLOW_NAME = 'hello-world';
+//const WORKFLOW_NAME = 'hello-world';
 
 // Export the entrypoint function for local testing
-export async function run(input: { message: string }) {
-  try {
-    // Run the workflow with initial state
-    const finalState = await graph.invoke({
-      messages: [new HumanMessage(input.message)],
-    });
+//export async function run(input: { message: string }) {
+//  try {
+//    // Run the workflow with initial state
+//    const finalState = await graph.invoke({
+//      messages: [new HumanMessage(input.message)],
+//    });
 
-    return {
-      messages: finalState.messages,
-      final_answer: finalState.messages[finalState.messages.length - 1].content,
-    };
+//    return {
+//      messages: finalState.messages,
+//      final_answer: finalState.messages[finalState.messages.length - 1].content,
+//    };
 
-  } catch (error) {
-    console.error('Workflow error:', error);
-    throw error;
-  }
-}
+//  } catch (error) {
+//    console.error('Workflow error:', error);
+//    throw error;
+//  }
+//}
 
 // Export the graph and workflow
-export { graph };
-export default workflow; 
+//export { graph };
+//export default workflow; 
