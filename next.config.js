@@ -10,7 +10,19 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // Configure source directory
-  pageExtensions: ['tsx', 'ts'],
+  distDir: '.next',
+  // Set the source directory
+  dir: './src',
+  // Ensure public assets are copied
+  assetPrefix: '',
+  // Configure static file serving
+  publicRuntimeConfig: {
+    staticFolder: '/public',
+  },
+  experimental: {
+    // Needed for some of our dependencies
+    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli']
+  },
   webpack: (config, { isServer }) => {
     // Exclude agent-related files from the build
     if (!isServer) {
@@ -30,10 +42,6 @@ const nextConfig = {
     });
 
     return config;
-  },
-  experimental: {
-    // Needed for some of our dependencies
-    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli']
   }
 };
 
