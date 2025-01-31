@@ -80,9 +80,24 @@ export class AgentAPI {
       // Format messages for the workflow
       const formattedMessages = input.previousMessages.map(msg => ({
         type: msg.author_id === '00000000-0000-0000-0000-000000000000' ? 'ai' : 'human',
-        content: msg.body,
+        content: msg.body || '',
         metadata: msg.metadata || {}
       }));
+
+      // Ensure we have at least a system message and the current ticket message
+      const messages = [
+        {
+          type: 'system',
+          content: "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
+                  "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
+                  "Use the analyze_ticket tool to determine if human intervention is needed."
+        },
+        ...formattedMessages,
+        {
+          type: 'human',
+          content: input.ticket
+        }
+      ];
 
       const body = {
         assistant_id: 'ticket-processor',
@@ -91,17 +106,7 @@ export class AgentAPI {
           ticketId: input.ticketId,
           userId: input.userId,
           previousMessages: formattedMessages,
-          messages: [
-            {
-              type: 'system',
-              content: "You are a helpful customer support agent. Process the ticket and provide a clear, professional response."
-            },
-            ...formattedMessages,
-            {
-              type: 'human',
-              content: input.ticket
-            }
-          ]
+          messages: messages
         },
         metadata: {
           environment: this.config.environment,

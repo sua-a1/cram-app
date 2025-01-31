@@ -180,22 +180,27 @@ export async function run(input: InputType): Promise<OutputType> {
         console.log(`[${env.NODE_ENV}] Processing ticket: ${validatedInput.ticket.substring(0, 50)}...`);
 
         // Convert input messages to BaseMessage instances
-        const convertedMessages = (input.messages || []).map(msg => {
-          if (msg instanceof BaseMessage) return msg;
-          
-          const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
-          const metadata = msg.metadata || {};
-          
-          switch (msg.type) {
-            case 'system':
-              return new SystemMessage(content, metadata);
-            case 'ai':
-              return new AIMessage(content, metadata);
-            case 'human':
-            default:
-              return new HumanMessage(content, metadata);
+        const convertedMessages = (validatedInput.messages || []).map(msg => {
+          try {
+            if (msg instanceof BaseMessage) return msg;
+            
+            const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+            const metadata = msg.metadata || {};
+            
+            switch (msg.type) {
+              case 'system':
+                return new SystemMessage(content, metadata);
+              case 'ai':
+                return new AIMessage(content, metadata);
+              case 'human':
+              default:
+                return new HumanMessage(content, metadata);
+            }
+          } catch (error) {
+            console.error('Error converting message:', error, msg);
+            return null;
           }
-        });
+        }).filter(msg => msg !== null) as BaseMessage[];
 
         // Ensure we have at least a system message and the current ticket message
         if (convertedMessages.length === 0) {
@@ -208,6 +213,11 @@ export async function run(input: InputType): Promise<OutputType> {
             new HumanMessage(validatedInput.ticket)
           );
         }
+
+        console.log('Converted messages:', convertedMessages.map(msg => ({
+          type: msg.constructor.name,
+          content: msg.content
+        })));
 
         // Initialize state with converted messages
         const initialState = {
@@ -224,6 +234,7 @@ export async function run(input: InputType): Promise<OutputType> {
 
         console.log('Running workflow with state:', {
           messageCount: initialState.messages.length,
+          messageTypes: initialState.messages.map(msg => msg.constructor.name),
           ticketId: initialState.ticketId,
           userId: initialState.userId,
           historyCount: initialState.conversationHistory.length
