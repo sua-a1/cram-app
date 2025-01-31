@@ -1,0 +1,18 @@
+# Agent-related directories and files
+agents/
+scripts/test-ticket-processor.ts
+.langgraph/
+
+# Development and test files
+*.test.ts
+*.test.tsx
+__tests__/
+test/
+tests/
+
+# Other unnecessary files for web deployment
+README.md
+.env.example
+.env.local
+.env.development
+.env.test 
