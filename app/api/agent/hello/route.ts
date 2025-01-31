@@ -1,13 +1,5 @@
 import { NextResponse } from 'next/server';
-
-// Import stubs or actual implementations based on environment
-const { helloWorldAgent, langsmith, envConfig } = process.env.VERCEL
-  ? require('../../../lib/stubs/agent-stubs')
-  : {
-      helloWorldAgent: require('../../../../agents/workflows/hello-world'),
-      langsmith: require('../../../../agents/utils/langsmith'),
-      envConfig: require('../../../../agents/config/env')
-    };
+import { helloWorldAgent, langsmith, envConfig } from '../../../lib/stubs/agent-stubs';
 
 export async function POST(request: Request) {
   const requestId = crypto.randomUUID();
