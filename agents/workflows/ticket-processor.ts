@@ -212,88 +212,67 @@ async function callModel(state: typeof StateAnnotation.State) {
         .filter(msg => msg !== null && msg !== undefined)
         .map(msg => {
           if (msg instanceof BaseMessage) {
-            // Preserve tool calls if they exist
-            if (msg instanceof AIMessage && msg.additional_kwargs?.tool_calls) {
-              return new AIMessage({
-                content: msg.content,
-                additional_kwargs: {
-                  ...msg.additional_kwargs,
-                  tool_calls: msg.additional_kwargs.tool_calls
-                }
-              });
-            }
             return msg;
           }
           
           // Convert plain objects to BaseMessage instances
           if (msg && typeof msg === 'object' && 'content' in msg) {
-            const msgObj = msg as MessageLike & { additional_kwargs?: { tool_calls?: any[] } };
+            const msgObj = msg as MessageLike & { 
+              additional_kwargs?: { 
+                tool_calls?: Array<{
+                  id: string;
+                  type: string;
+                  function: {
+                    name: string;
+                    arguments: string;
+                  };
+                }>;
+              };
+              metadata?: Record<string, unknown>;
+            };
+            
             const content = typeof msgObj.content === 'string' ? msgObj.content : JSON.stringify(msgObj.content);
-            const metadata = msgObj.metadata || {};
             
             if (msgObj._getType?.() === 'system' || msgObj.type === 'system') {
               return new SystemMessage(content);
             } else if (msgObj._getType?.() === 'ai' || msgObj.type === 'ai') {
-              // Preserve tool calls for AI messages
-              return new AIMessage({
-                content,
-                additional_kwargs: {
-                  ...metadata,
-                  tool_calls: msgObj.additional_kwargs?.tool_calls || []
-                }
-              });
+              // Ensure tool calls are properly preserved for AI messages
+              const toolCalls = msgObj.additional_kwargs?.tool_calls || msgObj.metadata?.tool_calls as any[] || [];
+              
+              // Only create AI message with tool calls if they exist
+              if (toolCalls && toolCalls.length > 0) {
+                return new AIMessage({
+                  content,
+                  additional_kwargs: {
+                    tool_calls: toolCalls.map(call => ({
+                      id: call.id || `call_${Date.now()}`,
+                      type: call.type || 'function',
+                      function: {
+                        name: call.function.name,
+                        arguments: call.function.arguments
+                      }
+                    }))
+                  }
+                });
+              }
+              
+              // For AI messages without tool calls, create a regular message
+              return new AIMessage(content);
             } else {
               return new HumanMessage(content);
             }
           }
           
           // Convert strings to HumanMessage
-          if (typeof msg === 'string') {
-            return new HumanMessage(msg);
-          }
+          return new HumanMessage(String(msg));
+        });
 
-          console.warn('Invalid message type:', msg);
-          return null;
-        })
-        .filter((msg): msg is BaseMessage => msg !== null);
-
-      // Add valid messages, excluding any system messages since we already added one
-      messages.push(...validMessages.filter(msg => !(msg instanceof SystemMessage)));
+      messages.push(...validMessages);
     }
 
-    // Debug logging for final message array
-    console.log('Messages before model invocation:', messages.map(msg => ({
-      type: msg?.constructor?.name || 'null',
-      content: msg?.content || 'no content',
-      _type: msg?._getType?.() || 'unknown',
-      tool_calls: msg instanceof AIMessage ? msg.additional_kwargs?.tool_calls : undefined
-    })));
-
-    // Invoke model with messages
-    console.log('Invoking model with messages:', messages.length);
-    console.log('Message types:', messages.map(msg => msg.constructor.name));
+    // Call the model with the prepared messages
     const response = await model.invoke(messages);
-    console.log('Model response received:', {
-      type: response.constructor.name,
-      content: response.content,
-      tool_calls: response instanceof AIMessage ? response.additional_kwargs?.tool_calls : undefined
-    });
-    
-    // Store the latest message pair if there are messages
-    if (messages.length > 1) {
-      const lastUserMessage = messages[messages.length - 1];
-      await storeTicketMessages(
-        state.ticketId, 
-        [lastUserMessage, response], 
-        {}, 
-        state.userId
-      );
-    }
-    
-    return { 
-      messages: [response],
-      conversationHistory: messages.length > 1 ? [messages[messages.length - 1], response] : [response]
-    };
+    return response;
   } catch (error) {
     console.error('Error in callModel:', error);
     throw error;
@@ -341,11 +320,19 @@ export async function run(input: InputType): Promise<OutputType> {
           "Use the analyze_ticket tool to determine if human intervention is needed."
         ));
 
-        // Add previous messages if they exist
+        // Add previous messages if they exist, filtering out problematic messages
         if (validatedInput.messages?.length) {
           for (const msg of validatedInput.messages) {
             try {
               if (msg instanceof BaseMessage) {
+                // For existing BaseMessage instances, ensure tool calls are valid
+                if (msg instanceof AIMessage) {
+                  const toolCalls = msg.additional_kwargs?.tool_calls;
+                  if (!toolCalls || toolCalls.length === 0) {
+                    // Skip AI messages with empty tool calls
+                    continue;
+                  }
+                }
                 baseMessages.push(msg);
                 continue;
               }
@@ -361,13 +348,26 @@ export async function run(input: InputType): Promise<OutputType> {
                   baseMessages.push(new SystemMessage(content));
                   break;
                 case 'ai':
-                  baseMessages.push(new AIMessage({
-                    content,
-                    additional_kwargs: {
-                      ...msg.metadata,
-                      tool_calls: msg.metadata?.tool_calls || []
-                    }
-                  }));
+                  // Only add AI messages with valid tool calls
+                  const toolCalls = msg.metadata?.tool_calls;
+                  if (toolCalls && toolCalls.length > 0) {
+                    baseMessages.push(new AIMessage({
+                      content,
+                      additional_kwargs: {
+                        tool_calls: toolCalls.map(call => ({
+                          id: call.id || `call_${Date.now()}`,
+                          type: call.type || 'function',
+                          function: {
+                            name: call.function.name,
+                            arguments: call.function.arguments
+                          }
+                        }))
+                      }
+                    }));
+                  } else if (!msg.metadata?.is_chunk) {
+                    // For non-chunk AI messages without tool calls, convert to human messages
+                    baseMessages.push(new HumanMessage(content));
+                  }
                   break;
                 case 'human':
                   baseMessages.push(new HumanMessage(content));
@@ -381,29 +381,22 @@ export async function run(input: InputType): Promise<OutputType> {
           }
         }
 
-        // Always add the current ticket as a human message
-        baseMessages.push(new HumanMessage(validatedInput.ticket));
+        // Always add the current ticket as a human message if it's not already the last message
+        const lastMessage = baseMessages[baseMessages.length - 1];
+        if (!lastMessage || !(lastMessage instanceof HumanMessage) || lastMessage.content !== validatedInput.ticket) {
+          baseMessages.push(new HumanMessage(validatedInput.ticket));
+        }
 
-        console.log('Converted messages:', baseMessages.map(msg => ({
+        // Debug log the final message array
+        console.log('Final messages array:', baseMessages.map(msg => ({
           type: msg.constructor.name,
           content: msg.content,
-          _type: msg._getType?.()
+          tool_calls: msg instanceof AIMessage ? msg.additional_kwargs?.tool_calls : undefined
         })));
 
         // Initialize state with converted messages
         const initialState = {
-          messages: baseMessages.map(msg => {
-            if (msg instanceof AIMessage) {
-              return new AIMessage({
-                content: msg.content,
-                additional_kwargs: {
-                  ...msg.additional_kwargs,
-                  tool_calls: msg.additional_kwargs?.tool_calls || []
-                }
-              });
-            }
-            return msg;
-          }),
+          messages: baseMessages,
           ticketId: validatedInput.ticketId,
           userId: validatedInput.userId,
           conversationHistory: []
@@ -425,19 +418,19 @@ export async function run(input: InputType): Promise<OutputType> {
         const finalState = await graph.invoke(initialState);
 
         // Store final AI message with proper ticket ID
-        const lastMessage = finalState.messages[finalState.messages.length - 1];
-        if (lastMessage instanceof AIMessage || lastMessage instanceof AIMessageChunk) {
+        const lastAIMessage = finalState.messages[finalState.messages.length - 1];
+        if (lastAIMessage instanceof AIMessage || lastAIMessage instanceof AIMessageChunk) {
           await storeTicketMessage({
-            ticketId: validatedInput.ticketId.trim(), // Ensure clean UUID
-            message: lastMessage,
+            ticketId: validatedInput.ticketId.trim(),
+            message: lastAIMessage,
             metadata: { ticketId: validatedInput.ticketId.trim() },
             userId: validatedInput.userId.trim()
           });
         }
 
-        const finalContent = typeof lastMessage.content === 'string' 
-          ? lastMessage.content.trim() // Ensure clean content
-          : JSON.stringify(lastMessage.content);
+        const finalContent = typeof lastAIMessage.content === 'string' 
+          ? lastAIMessage.content.trim()
+          : JSON.stringify(lastAIMessage.content);
 
         // Parse tool outputs from the conversation
         const toolOutputs = finalState.messages
