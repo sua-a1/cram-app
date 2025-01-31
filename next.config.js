@@ -9,19 +9,14 @@ const nextConfig = {
     // Don't fail build on eslint errors during deployment
     ignoreDuringBuilds: true,
   },
-  // Configure source directory
+  // Configure build output
   distDir: '.next',
-  // Set the source directory
-  dir: './src',
-  // Ensure public assets are copied
-  assetPrefix: '',
-  // Configure static file serving
-  publicRuntimeConfig: {
-    staticFolder: '/public',
-  },
+  // Configure app directory
   experimental: {
     // Needed for some of our dependencies
-    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli']
+    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli'],
+    // Enable app directory
+    appDir: true
   },
   webpack: (config, { isServer }) => {
     // Exclude agent-related files from the build
