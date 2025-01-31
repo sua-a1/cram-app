@@ -34,17 +34,17 @@ export async function storeTicketMessage({ ticketId, message, metadata = {}, use
 
   // Handle all possible message types
   if (message instanceof AIMessage || message instanceof AIMessageChunk) {
-    authorId = AI_AGENT_ID;
+    authorId = AI_AGENT_ID.trim(); // Ensure no whitespace in UUID
     authorRole = 'employee';
   } else if (message instanceof SystemMessage || message instanceof ToolMessage) {
-    authorId = AI_AGENT_ID;
+    authorId = AI_AGENT_ID.trim(); // Ensure no whitespace in UUID
     authorRole = 'employee';
     messageType = 'internal';
   } else if (message instanceof HumanMessage) {
     if (!userId) {
       throw new Error('userId is required for human messages');
     }
-    authorId = userId;
+    authorId = userId.trim(); // Ensure no whitespace in UUID
     authorRole = 'customer';
   } else {
     // For unknown message types, treat them as system messages
@@ -52,7 +52,7 @@ export async function storeTicketMessage({ ticketId, message, metadata = {}, use
       type: message.constructor.name,
       _type: message._getType?.() || 'unknown'
     });
-    authorId = AI_AGENT_ID;
+    authorId = AI_AGENT_ID.trim(); // Ensure no whitespace in UUID
     authorRole = 'employee';
     messageType = 'internal';
   }
@@ -61,18 +61,21 @@ export async function storeTicketMessage({ ticketId, message, metadata = {}, use
   let body: string;
   try {
     body = typeof message.content === 'string' 
-      ? message.content 
+      ? message.content.trim() // Ensure no extra whitespace
       : JSON.stringify(message.content);
   } catch (error) {
     console.error('Error stringifying message content:', error);
     body = 'Error: Could not process message content';
   }
 
+  // Clean up ticket ID
+  const cleanTicketId = ticketId.trim();
+
   // Store the message with enhanced metadata
   const { error } = await supabase
     .from('ticket_messages')
     .insert({
-      ticket_id: ticketId,
+      ticket_id: cleanTicketId,
       author_id: authorId,
       author_role: authorRole,
       body,

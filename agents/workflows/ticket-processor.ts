@@ -1,5 +1,5 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage, AIMessage, BaseMessage, SystemMessage } from "@langchain/core/messages";
+import { HumanMessage, AIMessage, BaseMessage, SystemMessage, AIMessageChunk } from "@langchain/core/messages";
 import { StateGraph, Annotation } from "@langchain/langgraph";
 import { DynamicTool } from "@langchain/core/tools";
 import { ToolNode } from "@langchain/langgraph/prebuilt";
@@ -167,17 +167,17 @@ export async function run(input: InputType): Promise<OutputType> {
 
         // Store final AI message with proper ticket ID
         const lastMessage = finalState.messages[finalState.messages.length - 1];
-        if (lastMessage instanceof AIMessage) {
+        if (lastMessage instanceof AIMessage || lastMessage instanceof AIMessageChunk) {
           await storeTicketMessage({
-            ticketId: validatedInput.ticketId,
+            ticketId: validatedInput.ticketId.trim(), // Ensure clean UUID
             message: lastMessage,
-            metadata: { ticketId: validatedInput.ticketId },
-            userId: validatedInput.userId
+            metadata: { ticketId: validatedInput.ticketId.trim() },
+            userId: validatedInput.userId.trim()
           });
         }
 
         const finalContent = typeof lastMessage.content === 'string' 
-          ? lastMessage.content 
+          ? lastMessage.content.trim() // Ensure clean content
           : JSON.stringify(lastMessage.content);
 
         // Parse tool outputs from the conversation
