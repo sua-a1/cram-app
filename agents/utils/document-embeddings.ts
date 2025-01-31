@@ -56,6 +56,8 @@ export async function processDocument(
       sourceType: 'document',
       sourceId: id,
       title,
+      startChar: 0,
+      endChar: content?.length || 0,
       additionalContext: {
         documentType: file_type || 'text',
       }

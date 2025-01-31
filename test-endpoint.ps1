@@ -1,0 +1,2 @@
+$response = Invoke-WebRequest -Method POST -Uri "http://localhost:3001/api/tickets/123e4567-e89b-12d3-a456-426614174000/process" -ContentType "application/json"
+$response.Content | ConvertFrom-Json | ConvertTo-Json 

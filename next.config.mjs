@@ -13,7 +13,9 @@ const nextConfig = {
   distDir: '.next',
   experimental: {
     // Needed for some of our dependencies
-    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli']
+    serverComponentsExternalPackages: ['@langchain/langgraph', '@langchain/langgraph-cli'],
+    // Enable proper ES modules support
+    esmExternals: true,
   },
   // Configure source directory
   basePath: '',
@@ -38,6 +40,13 @@ const nextConfig = {
     config.module.rules.push({
       test: /agents\//,
       loader: 'ignore-loader'
+    });
+
+    // Add support for .mjs files
+    config.module.rules.push({
+      test: /\.mjs$/,
+      include: /node_modules/,
+      type: 'javascript/auto',
     });
 
     return config;
