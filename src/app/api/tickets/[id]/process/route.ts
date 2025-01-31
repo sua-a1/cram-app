@@ -32,8 +32,8 @@ export async function POST(
       }
       userId = session.user.id;
     } else {
-      // Use a test user ID for development
-      userId = '00000000-0000-0000-0000-000000000000';
+      // Use a test user ID for development (different from AI agent ID)
+      userId = 'b1cc819e-46e8-43cb-b7a8-4ec8f42916e8';
     }
 
     // Extract ticket ID from params

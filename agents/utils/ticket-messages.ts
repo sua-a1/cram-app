@@ -129,19 +129,31 @@ export async function getTicketMessages(ticketId: string): Promise<BaseMessage[]
     return [];
   }
 
-  return messages.map(msg => {
-    const content = msg.body;
-    const additionalKwargs = msg.metadata || {};
+  return messages
+    .map(msg => {
+      try {
+        const content = msg.body || '';
+        const additionalKwargs = msg.metadata || {};
 
-    if (msg.author_id === AI_AGENT_ID) {
-      if (msg.metadata?.is_chunk) {
-        return new AIMessageChunk({ content, additional_kwargs: additionalKwargs });
+        if (!content && !additionalKwargs) {
+          console.warn('Skipping invalid message:', msg);
+          return null;
+        }
+
+        if (msg.author_id === AI_AGENT_ID) {
+          if (msg.metadata?.is_chunk) {
+            return new AIMessageChunk({ content, additional_kwargs: additionalKwargs });
+          }
+          return msg.message_type === 'internal'
+            ? new SystemMessage(content, additionalKwargs)
+            : new AIMessage(content, additionalKwargs);
+        } else {
+          return new HumanMessage(content, additionalKwargs);
+        }
+      } catch (error) {
+        console.error('Error converting message:', error, msg);
+        return null;
       }
-      return msg.message_type === 'internal'
-        ? new SystemMessage(content, additionalKwargs)
-        : new AIMessage(content, additionalKwargs);
-    } else {
-      return new HumanMessage(content, additionalKwargs);
-    }
-  });
+    })
+    .filter(msg => msg !== null);
 } 

@@ -145,14 +145,21 @@ export async function run(input: InputType): Promise<OutputType> {
         // Initialize messages with history if available
         const initialMessages = [
           systemMessage,
-          ...(validatedInput.previousMessages || []),
+          ...(validatedInput.previousMessages || [])
+            .filter(msg => msg !== null && msg !== undefined)
+            .map(msg => {
+              if (msg instanceof BaseMessage) return msg;
+              if (typeof msg === 'string') return new HumanMessage(msg);
+              return null;
+            })
+            .filter(msg => msg !== null),
           new HumanMessage(validatedInput.ticket)
-        ];
+        ].filter(msg => msg !== null);
 
         // Store initial messages with proper ticket ID
         await storeTicketMessages(
           validatedInput.ticketId, 
-          [systemMessage, new HumanMessage(validatedInput.ticket)],
+          [systemMessage, new HumanMessage(validatedInput.ticket)].filter(msg => msg !== null),
           { ticketId: validatedInput.ticketId },  // Add ticketId to metadata
           validatedInput.userId
         );
