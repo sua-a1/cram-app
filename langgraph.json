@@ -21,7 +21,11 @@
     ]
   },
   "build": {
-    "command": "npm install --install-strategy=shallow --legacy-peer-deps --no-audit"
+    "pre": [
+      "rm -f package-lock.json",
+      "npm install --package-lock-only --legacy-peer-deps"
+    ],
+    "command": "npm ci --legacy-peer-deps --no-audit"
   },
   "node_version": "20",
   "dockerfile_lines": [],
