@@ -16,6 +16,11 @@ const InputSchema = z.object({
   ticketId: z.string().uuid('Valid ticket ID is required'),
   userId: z.string().uuid('Valid user ID is required'),
   previousMessages: z.array(z.any()).optional(),
+  messages: z.array(z.object({
+    type: z.enum(['system', 'human', 'ai']),
+    content: z.string(),
+    metadata: z.record(z.any()).optional()
+  })).optional()
 });
 
 const OutputSchema = z.object({
@@ -174,67 +179,42 @@ export async function run(input: InputType): Promise<OutputType> {
         
         console.log(`[${env.NODE_ENV}] Processing ticket: ${validatedInput.ticket.substring(0, 50)}...`);
 
-        // Get ticket history
-        const ticketHistory = await getTicketMessages(validatedInput.ticketId);
-        const conversationContext = ticketHistory
-          .map(msg => {
-            const role = msg instanceof AIMessage ? 'Assistant' : 'Customer';
-            return `${role}: ${msg.content}`;
-          })
-          .join('\n');
+        // Convert input messages to BaseMessage instances
+        const convertedMessages = (input.messages || []).map(msg => {
+          if (msg instanceof BaseMessage) return msg;
+          
+          const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+          const metadata = msg.metadata || {};
+          
+          switch (msg.type) {
+            case 'system':
+              return new SystemMessage(content, metadata);
+            case 'ai':
+              return new AIMessage(content, metadata);
+            case 'human':
+            default:
+              return new HumanMessage(content, metadata);
+          }
+        });
 
-        // Add system message with conversation history
-        const systemMessage = new SystemMessage(
-          "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
-          "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
-          "Use the analyze_ticket tool to determine if human intervention is needed.\n\n" +
-          (conversationContext ? `Previous conversation:\n${conversationContext}\n\n` : "") +
-          "Respond to the customer's latest message while maintaining context of the conversation."
-        );
+        // Ensure we have at least a system message and the current ticket message
+        if (convertedMessages.length === 0) {
+          convertedMessages.push(
+            new SystemMessage(
+              "You are a helpful customer support agent. Process the ticket and provide a clear, professional response. " +
+              "Consider:\n1. The customer's issue or question\n2. Any relevant context or history\n3. Appropriate solutions or next steps\n" +
+              "Use the analyze_ticket tool to determine if human intervention is needed."
+            ),
+            new HumanMessage(validatedInput.ticket)
+          );
+        }
 
-        // Initialize messages with history if available
-        const initialMessages = [
-          systemMessage,
-          ...(validatedInput.previousMessages || [])
-            .filter(msg => msg !== null && msg !== undefined)
-            .map(msg => {
-              if (msg instanceof BaseMessage) return msg;
-              if (typeof msg === 'string') return new HumanMessage(msg);
-              return null;
-            })
-            .filter(msg => msg !== null),
-          new HumanMessage(validatedInput.ticket)
-        ].filter(msg => msg !== null);
-
-        // Store initial messages with proper ticket ID
-        await storeTicketMessages(
-          validatedInput.ticketId, 
-          [systemMessage, new HumanMessage(validatedInput.ticket)].filter(msg => msg !== null),
-          { ticketId: validatedInput.ticketId },  // Add ticketId to metadata
-          validatedInput.userId
-        );
-
-        // Run the workflow with initial state
-        console.log('Initial messages:', initialMessages.map(msg => ({
-          type: msg?.constructor?.name || 'null',
-          content: msg?.content || 'no content'
-        })));
-
+        // Initialize state with converted messages
         const initialState = {
-          messages: initialMessages.filter(msg => {
-            if (!msg) {
-              console.warn('Filtered out null message during state initialization');
-              return false;
-            }
-            if (!(msg instanceof BaseMessage)) {
-              console.warn('Filtered out non-BaseMessage during state initialization:', msg);
-              return false;
-            }
-            return true;
-          }),
+          messages: convertedMessages,
           ticketId: validatedInput.ticketId,
           userId: validatedInput.userId,
-          conversationHistory: ticketHistory.filter(msg => msg instanceof BaseMessage)
+          conversationHistory: []
         };
 
         // Validate initial state

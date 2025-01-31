@@ -77,13 +77,31 @@ export class AgentAPI {
         'X-Api-Key': this.config.apiKey,
       };
 
+      // Format messages for the workflow
+      const formattedMessages = input.previousMessages.map(msg => ({
+        type: msg.author_id === '00000000-0000-0000-0000-000000000000' ? 'ai' : 'human',
+        content: msg.body,
+        metadata: msg.metadata || {}
+      }));
+
       const body = {
         assistant_id: 'ticket-processor',
         input: {
           ticket: input.ticket,
           ticketId: input.ticketId,
           userId: input.userId,
-          previousMessages: input.previousMessages
+          previousMessages: formattedMessages,
+          messages: [
+            {
+              type: 'system',
+              content: "You are a helpful customer support agent. Process the ticket and provide a clear, professional response."
+            },
+            ...formattedMessages,
+            {
+              type: 'human',
+              content: input.ticket
+            }
+          ]
         },
         metadata: {
           environment: this.config.environment,
