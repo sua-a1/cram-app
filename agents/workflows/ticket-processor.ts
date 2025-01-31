@@ -263,13 +263,19 @@ export async function run(input: InputType): Promise<OutputType> {
 
               switch (msg.type) {
                 case 'system':
-                  baseMessages.push(new SystemMessage(content, msg.metadata));
+                  baseMessages.push(new SystemMessage(content));
                   break;
                 case 'ai':
-                  baseMessages.push(new AIMessage(content, msg.metadata));
+                  baseMessages.push(new AIMessage({
+                    content,
+                    additional_kwargs: {
+                      ...msg.metadata,
+                      tool_calls: msg.metadata?.tool_calls || []
+                    }
+                  }));
                   break;
                 case 'human':
-                  baseMessages.push(new HumanMessage(content, msg.metadata));
+                  baseMessages.push(new HumanMessage(content));
                   break;
                 default:
                   console.warn('Unknown message type:', msg.type);
@@ -291,7 +297,18 @@ export async function run(input: InputType): Promise<OutputType> {
 
         // Initialize state with converted messages
         const initialState = {
-          messages: baseMessages,
+          messages: baseMessages.map(msg => {
+            if (msg instanceof AIMessage) {
+              return new AIMessage({
+                content: msg.content,
+                additional_kwargs: {
+                  ...msg.additional_kwargs,
+                  tool_calls: msg.additional_kwargs?.tool_calls || []
+                }
+              });
+            }
+            return msg;
+          }),
           ticketId: validatedInput.ticketId,
           userId: validatedInput.userId,
           conversationHistory: []
