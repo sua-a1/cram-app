@@ -7,27 +7,13 @@ import { dirname, resolve } from 'path';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Try to load .env from multiple possible locations
-const envPaths = [
-  resolve(__dirname, '../../.env'),  // Local development
-  resolve(process.cwd(), '.env'),    // Production in /deps/cram-app
-  '.env'                             // Fallback to current directory
-];
-
-let envLoaded = false;
-for (const path of envPaths) {
-  try {
-    console.log('Loading .env file from:', path);
-    config({ path });
-    envLoaded = true;
-    break;
-  } catch (error) {
-    console.log('Error loading .env file:', error);
-  }
-}
-
-if (!envLoaded) {
-  console.warn('No .env file loaded, falling back to process.env');
+// Try to load .env in development, but don't fail if it doesn't exist
+try {
+  const envPath = resolve(__dirname, '../../.env');
+  console.log('Attempting to load .env file from:', envPath);
+  config({ path: envPath });
+} catch (error) {
+  console.log('No .env file found, using process.env');
 }
 
 // Debug: Log all environment variables (without sensitive values)
